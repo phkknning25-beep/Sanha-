@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 export default function App() {
-  // 1. ฐานข้อมูลยุทธศาสตร์การจัดหาเชิงรุก (เพิ่มข้อมูลเริ่มต้นให้เนี๊ยบตามบรีฟ)
+  // 1. ฐานข้อมูลยุทธศาสตร์การจัดหาเชิงรุก (State หลักที่ใช้คำนวณสถิติเรียลไทม์)
   const [villages, setVillages] = useState([
     { id: 1, name: 'หมู่บ้านแสนสิริ สุขุมวิท 77', zone: 'กรุงเทพฯ ตะวันออก', contact: 'คุณสมศักดิ์ รักสงบ', phone: '081-234-5678', status: 'อนุญาตเข้าจัดกิจกรรม', years: '2024, 2025' },
     { id: 2, name: 'หมู่บ้านลัดดารมย์ ปิ่นเกล้า', zone: 'นนทบุรี / บางใหญ่', contact: 'คุณหญิงวรรณา รุ่งเรือง', phone: '089-876-5432', status: 'รอการตอบกลับ', years: '2024' },
@@ -9,7 +9,7 @@ export default function App() {
     { id: 4, name: 'หมู่บ้านเพอร์เฟค เพลส รัตนาธิเบศร์', zone: 'นนทบุรี / เมืองนนทบุรี', contact: 'คุณอัญชลี มีสุข', phone: '085-111-2233', status: 'อนุญาตเข้าจัดกิจกรรม', years: '2025' }
   ]);
 
-  // สเตตสำหรับควบคุมการเปิด/ปิดฟอร์ม และการจัดเก็บข้อมูลขณะคีย์
+  // สเตตควบคุมฟอร์มและการแก้ไขข้อมูล
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
@@ -23,21 +23,43 @@ export default function App() {
     years: ''
   });
 
-  // 2. ข้อมูลสถิติภาพรวมเชิงยุทธศาสตร์
-  const stats = [
-    { label: 'อัตราการเข้าถึงเป้าหมาย (Reach)', value: '82.5%', change: '+4.2% เดือนนี้', icon: '📈' },
-    { label: 'อัตราความคุ้มค่าต่อส่วนรวม', value: '1:4.8', change: 'เกณฑ์ประสิทธิภาพสูง', icon: '💎' },
-    { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: '94.1%', change: 'อยู่ในเกณฑ์ดีเยี่ยม', icon: '🛡️' },
-  ];
+  // ==========================================
+  // 📊ระบบสูตรคำนวณสถิติแบบ REAL-TIME (Dynamic Calculation)
+  // ==========================================
+  const totalCount = villages.length;
+  const approvedCount = villages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
+  const pendingCount = villages.filter(v => v.status === 'รอการตอบกลับ').length;
 
-  // ฟังก์ชันเปิดฟอร์มเพื่อเพิ่มข้อมูลใหม่
+  // สูตรที่ 1: อัตราการเข้าถึงเป้าหมาย (Reach %)
+  const reachValue = totalCount > 0 ? ((approvedCount / totalCount) * 100).toFixed(1) : '0.0';
+  const reachChange = totalCount > 0 ? `แปรผันตามสารบบ ${totalCount} พื้นที่` : 'ไม่มีข้อมูลในระบบ';
+
+  // สูตรที่ 2: อัตราความคุ้มค่าต่อส่วนรวม (สเกลผลประโยชน์เชิงรุก 1 : X)
+  const valueMultiplier = totalCount > 0 ? (1 + (approvedCount * 1.25)).toFixed(1) : '0.0';
+  const valueText = approvedCount >= 2 ? 'เกณฑ์ประสิทธิภาพสูง' : 'เกณฑ์กำลังพัฒนา';
+
+  // สูตรที่ 3: ความสำเร็จในการสื่อสารความเสี่ยง (หักลบเคสค้างสถานะ รอการตอบกลับออก)
+  const riskCommunicationSuccess = totalCount > 0 
+    ? (((totalCount - pendingCount) / totalCount) * 100).toFixed(1) 
+    : '0.0';
+  const riskText = parseFloat(riskCommunicationSuccess) >= 80 ? 'อยู่ในเกณฑ์ดีเยี่ยม' : 'ควรเร่งสื่อสารเพิ่มเติม';
+
+  // มัดรวมเข้ากล่องสถิติเพื่อไป Render บนหน้าจอ
+  const dynamicStats = [
+    { label: 'อัตราการเข้าถึงเป้าหมาย (Reach)', value: `${reachValue}%`, change: reachChange, icon: '📈' },
+    { label: 'อัตราความคุ้มค่าต่อส่วนรวม', value: `1:${valueMultiplier}`, change: valueText, icon: '💎' },
+    { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskCommunicationSuccess}%`, change: riskText, icon: '🛡️' },
+  ];
+  // ==========================================
+
+  // ฟังก์ชันเปิดฟอร์มเพิ่มข้อมูลใหม่
   const handleOpenAdd = () => {
     setIsEditing(false);
     setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '' });
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันเปิดฟอร์มเพื่อแก้ไขข้อมูลเดิม
+  // ฟังก์ชันเปิดฟอร์มแก้ไขข้อมูลเดิม
   const handleOpenEdit = (village) => {
     setIsEditing(true);
     setCurrentId(village.id);
@@ -52,14 +74,14 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันลบข้อมูลหมู่บ้านจัดสรร
+  // ฟังก์ชันลบข้อมูล
   const handleDelete = (id) => {
     if (window.confirm('คุณหนิงแน่ใจใช่ไหมคะว่าต้องการลบสารบบข้อมูลหมู่บ้านนี้ออกถาวร?')) {
       setVillages(villages.filter(v => v.id !== id));
     }
   };
 
-  // ฟังก์ชันบันทึกข้อมูล (บันทึกทั้งเคสเพิ่มใหม่ และเคสแก้ไข)
+  // ฟังก์ชันบันทึกข้อมูลแบบ Submit
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.zone) {
@@ -71,7 +93,7 @@ export default function App() {
       setVillages(villages.map(v => v.id === currentId ? { ...v, ...formData } : v));
     } else {
       const newVillage = {
-        id: Date.now(), // ใช้ Timestamp เพื่อป้องกันไอดีซ้ำกัน
+        id: Date.now(),
         ...formData
       };
       setVillages([...villages, newVillage]);
@@ -82,7 +104,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0b0f19] text-slate-100 font-sans antialiased pb-12">
       
-      {/* 🏛️ HEADER: ส่วนหัวสไตล์ Apple Minimal */}
+      {/* 🏛️ HEADER */}
       <header className="border-b border-slate-800 bg-[#111827]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 text-xl shadow-inner">📍</div>
@@ -101,7 +123,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         
-        {/* 📢 TITLE & CORE FOCUS: การสื่อสารความเสี่ยง */}
+        {/* 📢 TITLE & CORE FOCUS */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">ระบบกิจกรรมแผนกสรรหาของบริจาคเชิงรุก</h2>
@@ -127,23 +149,25 @@ export default function App() {
           </div>
         )}
 
-        {/* 📊 STATS CARDS */}
+        {/* 📊 STATS CARDS: ปรับใช้ตัวแปรแบบเรียลไทม์ ขยับตามการเพิ่ม/ลบข้อมูลในสารบบทันที */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {stats.map((item, index) => (
+          {dynamicStats.map((item, index) => (
             <div key={index} className="bg-[#111827] border border-slate-800/80 rounded-xl p-5 shadow-lg">
               <div className="flex justify-between items-start">
                 <p className="text-xs font-medium text-slate-400 tracking-wide uppercase">{item.label}</p>
                 <span className="text-lg">{item.icon}</span>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-white tracking-tight font-mono">{item.value}</span>
-                <span className="text-[11px] font-medium text-emerald-400">{item.change}</span>
+                <span className="text-2xl font-bold text-white tracking-tight font-mono animate-pulse-once">{item.value}</span>
+                <span className={`text-[11px] font-medium ${item.value !== '0.0%' && item.value !== '1:0.0' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {item.change}
+                </span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* 🗃️ TABLE CONTAINER: สารบบข้อมูลยุทธศาสตร์ */}
+        {/* 🗃️ TABLE CONTAINER */}
         <div className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
           
           <div className="px-6 py-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#141c2c]">
@@ -151,7 +175,7 @@ export default function App() {
               <h3 className="font-semibold text-white text-sm tracking-wide flex items-center gap-2">
                 📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">สถิตและทำเนียบข้อมูลการขออนุญาตเข้าทำกิจกรรมภายในหมู่บ้านจัดสรร</p>
+              <p className="text-xs text-slate-400 mt-0.5">สถิติและทำเนียบข้อมูลการขออนุญาตเข้าทำกิจกรรมภายในหมู่บ้านจัดสรร</p>
             </div>
             <button 
               onClick={handleOpenAdd}
@@ -239,9 +263,9 @@ export default function App() {
         </div>
       </main>
 
-      {/* 📋 MODAL FORM: หน้าต่างป็อปอัพจัดการข้อมูลระดับพรีเมียม (Overlay) */}
+      {/* 📋 MODAL FORM */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#111827] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="px-6 py-4 bg-[#141c2c] border-b border-slate-800 flex justify-between items-center">
               <h3 className="text-sm font-bold text-white tracking-wide">
