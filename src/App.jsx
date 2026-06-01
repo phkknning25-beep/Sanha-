@@ -73,7 +73,7 @@ export default function App() {
         {/* 📢 TITLE & CORE FOCUS: มุ่งเน้นการสื่อสารความเสี่ยงอย่างทรงพลัง */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">ระบบำกิจกรรมแผนกสรรหาของบริจาคเชิงรุก</h2>
+            <h2 className="text-2xl font-bold text-white tracking-tight">ระบบกิจกรรมแผนกสรรหาของบริจาคเชิงรุก</h2>
             <p className="text-slate-400 text-sm mt-1">แพลตฟอร์มวิเคราะห์ยุทธศาสตร์พื้นที่และการประเมินผลประโยชน์เพื่อส่วนรวม</p>
           </div>
           <div className="flex gap-2">
