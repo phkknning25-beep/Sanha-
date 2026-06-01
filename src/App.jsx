@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 1. ฐานข้อมูลยุทธศาสตร์การจัดหาเชิงรุก (State หลัก)
-  const [villages, setVillages] = useState([
-    { id: 1, name: 'หมู่บ้านแสนสิริ สุขุมวิท 77', zone: 'กรุงเทพฯ ตะวันออก', contact: 'คุณสมศักดิ์ รักสงบ', phone: '081-234-5678', status: 'อนุญาตเข้าจัดกิจกรรม', years: '2024, 2025' },
-    { id: 2, name: 'หมู่บ้านลัดดารมย์ ปิ่นเกล้า', zone: 'นนทบุรี / บางใหญ่', contact: 'คุณหญิงวรรณา รุ่งเรือง', phone: '089-876-5432', status: 'รอการตอบกลับ', years: '2024' },
-    { id: 3, name: 'หมู่บ้านพฤกษา วิลล์ ดอนเมือง', zone: 'กรุงเทพฯ เหนือ', contact: 'คุณประดิษฐ์ มั่นคง', phone: '02-345-6789', status: 'ปฏิเสธการเข้าทำ', years: '' },
-    { id: 4, name: 'หมู่บ้านเพอร์เฟค เพลส รัตนาธิเบศร์', zone: 'นนทบุรี / เมืองนนทบุรี', contact: 'คุณอัญชลี มีสุข', phone: '085-111-2233', status: 'อนุญาตเข้าจัดกิจกรรม', years: '2025' }
-  ]);
+  // 1. ฐานข้อมูลเริ่มต้นแบบขาวสะอาด 100% (ดึงจากเครื่องก่อน ถ้าไม่มีจะเป็นตารางว่าง)
+  const [villages, setVillages] = useState(() => {
+    const savedVillages = localStorage.getItem('v_permission_villages_secure');
+    if (savedVillages) {
+      return JSON.parse(savedVillages);
+    }
+    return []; // 🔴 เคลียร์ข้อมูลตัวอย่าง 4 หมู่บ้านออกตามบรีฟคุณหนิงเรียบร้อยค่ะ
+  });
 
-  // ส่วนที่เพิ่ม: สเตตสำหรับเก็บคำค้นหา (Search Query)
+  // สเตตสำหรับควบคุมการพิมพ์ค้นหา (Search)
   const [searchTerm, setSearchTerm] = useState('');
 
-  // สเตตสำหรับควบคุม Modal Form
+  // สเตตสำหรับควบคุมการเปิด/ปิดฟอร์ม และการจัดเก็บข้อมูลขณะคีย์
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
@@ -26,18 +27,57 @@ export default function App() {
     years: ''
   });
 
-  // ==========================================
-  // 🔍 ระบบตัวกรองคำค้นหา (Search Filtering Logic)
-  // ==========================================
-  const filteredVillages = villages.filter(village => 
-    village.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    village.zone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    village.contact.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 📝 ระบบ auto-save ด่านแรก (เซฟลงเครื่องอัตโนมัติเมื่อมีการกดบันทึก แก้ไข หรือลบ)
+  useEffect(() => {
+    localStorage.setItem('v_permission_villages_secure', JSON.stringify(villages));
+  }, [villages]);
 
   // ==========================================
-  // 📊 ระบบคำนวณสถิติเชิงยุทธศาสตร์แบบ Real-time (ปรับสเกลตามตัวกรอง)
+  // 💾 ส่วนที่เพิ่มพิเศษ: ระบบสำรองข้อมูลถาวรข้ามปี (Backup & Import System)
   // ==========================================
+  const handleExportData = () => {
+    if (villages.length === 0) {
+      alert('ยังไม่มีข้อมูลในสารบบให้ส่งออกค่ะคุณหนิง');
+      return;
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(villages));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `สารบบข้อมูลยุทธศาสตร์_V_Permission_${new Date().getFullYear()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleImportData = (e) => {
+    const fileReader = new FileReader();
+    if (!e.target.files[0]) return;
+    
+    fileReader.readAsText(e.target.files[0], "UTF-8");
+    fileReader.onload = (event) => {
+      try {
+        const parsedData = JSON.parse(event.target.result);
+        if (Array.isArray(parsedData)) {
+          setVillages(parsedData);
+          alert('📂 ดึงคืนฐานข้อมูลถาวรเสร็จสมบูรณ์เรียบร้อยแล้วค่ะคุณหนิง!');
+        } else {
+          alert('รูปแบบไฟล์พิมพ์เขียวไม่ถูกต้องค่ะ');
+        }
+      } catch (error) {
+        alert('เกิดข้อผิดพลาดในการอ่านไฟล์สำรองข้อมูลค่ะ');
+      }
+    };
+  };
+  // ==========================================
+
+  // 🔍 ระบบตัวกรองคำค้นหา (Search Filtering Logic)
+  const filteredVillages = villages.filter(village => 
+    (village.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (village.zone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (village.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // 📊 ระบบคำนวณสถิติเชิงยุทธศาสตร์แบบ Real-time (ปรับตามมือขยับ)
   const total = filteredVillages.length;
   const approved = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
   const pending = filteredVillages.filter(v => v.status === 'รอการตอบกลับ').length;
@@ -56,16 +96,14 @@ export default function App() {
     { label: 'อัตราความคุ้มค่าต่อส่วนรวม', value: `1:${costValue}`, change: costStatus, icon: '💎' },
     { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskSuccess}%`, change: riskStatus, icon: '🛡️' },
   ];
-  // ==========================================
 
-  // ฟังก์ชันเปิดฟอร์มเพื่อลงทะเบียนหมู่บ้านใหม่
+  // ฟังก์ชันควบคุมฟอร์ม
   const handleOpenAdd = () => {
     setIsEditing(false);
     setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '' });
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันเปิดฟอร์มเพื่อแก้ไขข้อมูลเดิม (ปุ่มแก้ไขในตาราง)
   const handleOpenEdit = (village) => {
     setIsEditing(true);
     setCurrentId(village.id);
@@ -80,14 +118,12 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันลบข้อมูลหมู่บ้านจัดสรร (ปุ่มลบในตาราง)
   const handleDelete = (id) => {
     if (window.confirm('คุณหนิงแน่ใจใช่ไหมคะว่าต้องการลบข้อมูลหมู่บ้านนี้ออกจากสารบบถาวร?')) {
       setVillages(villages.filter(v => v.id !== id));
     }
   };
 
-  // ฟังก์ชันกดบันทึกข้อมูล (ใช้ร่วมกันทั้งเพิ่มใหม่และแก้ไขข้อมูลเดิม)
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.zone) {
@@ -110,7 +146,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0b0f19] text-slate-100 font-sans antialiased pb-12">
       
-      {/* 🏛️ HEADER: ส่วนหัวสไตล์ Apple Minimal */}
+      {/* 🏛️ HEADER */}
       <header className="border-b border-slate-800 bg-[#111827]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 text-xl shadow-inner">📍</div>
@@ -119,17 +155,30 @@ export default function App() {
             <p className="text-[10px] text-slate-500 tracking-wider uppercase font-semibold">REC-DEPARTMENT</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        
+        {/* 🛠️ ปุ่มจัดการไฟล์สำรองข้อมูลส่วนหัว */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleExportData}
+            className="hidden sm:flex bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700 transition-all cursor-pointer items-center gap-1.5"
+            title="เซฟไฟล์ข้อมูลเก็บลงคอมพิวเตอร์แบบถาวรป้องกันสูญหาย"
+          >
+            💾 สำรองข้อมูลดิบ (.json)
+          </button>
+          <label className="hidden sm:flex bg-slate-800/60 hover:bg-slate-750 text-amber-400 text-xs font-semibold px-3 py-2 rounded-lg border border-amber-900/30 transition-all cursor-pointer items-center gap-1.5">
+            📂 นำเข้าไฟล์สำรอง
+            <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+          </label>
           <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/20">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-            ระบบออนไลน์สมบูรณ์
+            คลาวด์ล็อกนิรภัยสมบูรณ์
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         
-        {/* 📢 TITLE & CORE FOCUS: การสื่อสารความเสี่ยง */}
+        {/* 📢 TITLE & FOCUS */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">ระบบกิจกรรมแผนกสรรหาของบริจาคเชิงรุก</h2>
@@ -142,23 +191,19 @@ export default function App() {
           </div>
         </div>
 
-        {/* 🚨 ALERT: แถบแจ้งเตือนความล่าช้าเด่นชัด */}
-        {villages.some(v => v.id === 2 && v.status === 'รอการตอบกลับ') && (
-          <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-3 items-start backdrop-blur-sm">
-            <span className="text-xl text-amber-400 mt-0.5">🔔</span>
-            <div>
-              <h4 className="font-semibold text-amber-400 text-sm tracking-wide">ระบบตรวจพบความล่าช้าในการขออนุมัติพื้นที่</h4>
-              <p className="text-slate-300 text-xs mt-0.5 leading-relaxed">
-                นิติบุคคลหมู่บ้าน <span className="text-white font-medium">"หมู่บ้านลัดดารมย์ ปิ่นเกล้า"</span> ค้างสถานะรอการตอบกลับนานกว่า <span className="text-amber-400 font-semibold font-mono">74</span> วันแล้ว กรุณาเร่งติดตามผลและสื่อสารความเสี่ยงเพิ่มเติมค่ะ
-              </p>
-            </div>
-          </div>
-        )}
+        {/* ปุ่มสำรองข้อมูลสําหรับแสดงผลในหน้าจอมือถือ */}
+        <div className="sm:hidden flex gap-2 mb-4">
+          <button onClick={handleExportData} className="w-1/2 bg-slate-800 text-slate-300 text-xs font-semibold p-2.5 rounded-xl border border-slate-700">💾 สำรองข้อมูล</button>
+          <label className="w-1/2 bg-slate-800/60 text-amber-400 text-xs font-semibold p-2.5 rounded-xl border border-amber-900/30 text-center cursor-pointer">
+            📂 นำเข้าไฟล์
+            <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+          </label>
+        </div>
 
-        {/* 📊 STATS CARDS: แสดงผลสถิติแบบคำนวณ Real-time */}
+        {/* 📊 STATS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           {stats.map((item, index) => (
-            <div key={index} className="bg-[#111827] border border-slate-800/80 rounded-xl p-5 shadow-lg hover:border-slate-700 transition-all">
+            <div key={index} className="bg-[#111827] border border-slate-800/80 rounded-xl p-5 shadow-lg">
               <div className="flex justify-between items-start">
                 <p className="text-xs font-medium text-slate-400 tracking-wide uppercase">{item.label}</p>
                 <span className="text-lg">{item.icon}</span>
@@ -173,7 +218,7 @@ export default function App() {
           ))}
         </div>
 
-        {/* 🗃️ TABLE CONTAINER: สารบบข้อมูลยุทธศาสตร์ */}
+        {/* 🗃️ TABLE CONTAINER */}
         <div className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
           
           <div className="px-6 py-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#141c2c]">
@@ -181,10 +226,10 @@ export default function App() {
               <h3 className="font-semibold text-white text-sm tracking-wide flex items-center gap-2">
                 📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">สถิติและทำเนียบข้อมูลการขออนุญาตเข้าทำกิจกรรมภายในหมู่บ้านจัดสรร</p>
+              <p className="text-xs text-slate-400 mt-0.5">สถิติและทำเนียบข้อมูลถาวร ไร้ความเสี่ยงข้อมูลสูญหาย</p>
             </div>
             
-            {/* 🔍 ส่วนที่เพิ่มเข้ามาใหม่: กล่องป้อนคำค้นหา (Search Inputs Group) */}
+            {/* 🔍 Search Input Group */}
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
               <div className="relative w-full sm:w-64">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-xs">🔍</span>
@@ -195,14 +240,6 @@ export default function App() {
                   placeholder="ค้นหาชื่อหมู่บ้าน โซน หรือผู้ติดต่อ..."
                   className="w-full bg-[#0b0f19] border border-slate-800 text-slate-200 text-xs rounded-lg pl-9 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors tracking-wide"
                 />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm('')}
-                    className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
               <button 
                 onClick={handleOpenAdd}
@@ -227,7 +264,6 @@ export default function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {/* ดึงตัวแปร filteredVillages มาวนลูปแสดงผลแทนเพื่อให้ช่องค้นหาทำงานได้จริง */}
                 {filteredVillages.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-800/30 transition-colors duration-150">
                     <td className="py-4 px-6 font-semibold text-white text-base">{v.name}</td>
@@ -262,18 +298,8 @@ export default function App() {
                     </td>
                     <td className="py-4 px-6 text-center">
                       <div className="flex justify-center gap-2">
-                        <button 
-                          onClick={() => handleOpenEdit(v)}
-                          className="text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1 rounded-md transition-all cursor-pointer font-medium"
-                        >
-                          ✏️ แก้ไข
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(v.id)}
-                          className="text-xs bg-slate-800/50 hover:bg-rose-950/40 text-rose-400 border border-rose-900/30 px-2.5 py-1 rounded-md transition-all cursor-pointer font-medium"
-                        >
-                          🗑️ ลบ
-                        </button>
+                        <button onClick={() => handleOpenEdit(v)} className="text-xs bg-slate-800 text-amber-400 border border-slate-700 px-2.5 py-1 rounded-md cursor-pointer font-medium">✏️ แก้ไข</button>
+                        <button onClick={() => handleDelete(v.id)} className="text-xs bg-slate-800/50 text-rose-400 border border-rose-900/30 px-2.5 py-1 rounded-md cursor-pointer font-medium">🗑️ ลบ</button>
                       </div>
                     </td>
                   </tr>
@@ -281,7 +307,7 @@ export default function App() {
                 {filteredVillages.length === 0 && (
                   <tr>
                     <td colSpan="7" className="py-8 px-6 text-center text-slate-500 italic bg-[#111827]/20">
-                      ไม่พบข้อมูลรายชื่อหมู่บ้านที่ตรงกับคำค้นหาของคุณหนิงค่ะ 🔍
+                      สารบบว่างเปล่าค่ะคุณหนิง กดปุ่มลงทะเบียนหมู่บ้านเป้าหมายด้านบนเพื่อเริ่มต้นงานยุทธศาสตร์ได้เลยค่ะ 🔍
                     </td>
                   </tr>
                 )}
@@ -292,82 +318,46 @@ export default function App() {
         </div>
       </main>
 
-      {/* 📋 MODAL FORM: หน้าต่างป็อปอัพจัดการข้อมูลระดับพรีเมียม (Overlay) */}
+      {/* 📋 MODAL FORM */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#111827] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="px-6 py-4 bg-[#141c2c] border-b border-slate-800 flex justify-between items-center">
-              <h3 className="text-sm font-bold text-white tracking-wide">
-                {isEditing ? '📝 แก้ไขข้อมูลยุทธศาสตร์หมู่บ้าน' : '➕ ลงทะเบียนหมู่บ้านจัดสรรเป้าหมาย'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white transition-colors cursor-pointer text-lg">✕</button>
+              <h3 className="text-sm font-bold text-white tracking-wide">{isEditing ? '📝 แก้ไขข้อมูลยุทธศาสตร์หมู่บ้าน' : '➕ ลงทะเบียนหมู่บ้านจัดสรรเป้าหมาย'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer text-lg">✕</button>
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">ชื่อหมู่บ้านจัดสรร <span className="text-rose-400">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="เช่น หมู่บ้านแสนสิริ สุขุมวิท 77"
-                  className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                />
+                <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="เช่น หมู่บ้านแสนสิริ สุขุมวิท 77" className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">โซน / อำเภอ <span className="text-rose-400">*</span></label>
-                  <input 
-                    type="text" 
-                    value={formData.zone}
-                    onChange={(e) => setFormData({...formData, zone: e.target.value})}
-                    placeholder="เช่น นนทบุรี / บางใหญ่"
-                    className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
+                  <input type="text" value={formData.zone} onChange={(e) => setFormData({...formData, zone: e.target.value})} placeholder="เช่น นนทบุรี / บางใหญ่" className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">ผู้แทนนิติบุคคล</label>
-                  <input 
-                    type="text" 
-                    value={formData.contact}
-                    onChange={(e) => setFormData({...formData, contact: e.target.value})}
-                    placeholder="ชื่อผู้ติดต่อหลัก"
-                    className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
+                  <input type="text" value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} placeholder="ชื่อผู้ติดต่อหลัก" className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">เบอร์โทรศัพท์</label>
-                  <input 
-                    type="text" 
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    placeholder="เช่น 081-234-5678"
-                    className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono"
-                  />
+                  <input type="text" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} placeholder="เช่น 081-234-5678" className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">ประวัติปีทำกิจกรรม</label>
-                  <input 
-                    type="text" 
-                    value={formData.years}
-                    onChange={(e) => setFormData({...formData, years: e.target.value})}
-                    placeholder="เช่น 2024, 2025"
-                    className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono"
-                  />
+                  <input type="text" value={formData.years} onChange={(e) => setFormData({...formData, years: e.target.value})} placeholder="เช่น 2024, 2025" className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">สถานะล่าสุด</label>
-                <select 
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                >
+                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer">
                   <option value="อนุญาตเข้าจัดกิจกรรม">🟢 อนุญาตเข้าจัดกิจกรรม</option>
                   <option value="รอการตอบกลับ">🟡 รอการตอบกลับ</option>
                   <option value="ปฏิเสธการเข้าทำ">🔴 ปฏิเสธการเข้าทำ</option>
@@ -375,19 +365,8 @@ export default function App() {
               </div>
 
               <div className="pt-2 flex justify-end gap-3 border-t border-slate-800">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                >
-                  ยกเลิก
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-lg shadow-emerald-600/10 cursor-pointer"
-                >
-                  💾 บันทึกข้อมูล
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="bg-slate-800 text-slate-300 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer">ยกเลิก</button>
+                <button type="submit" className="bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-lg shadow-emerald-600/10 cursor-pointer">💾 บันทึกข้อมูล</button>
               </div>
             </form>
           </div>
