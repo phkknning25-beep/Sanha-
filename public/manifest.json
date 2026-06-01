@@ -1,0 +1,9 @@
+{
+  "short_name": "V-Permission",
+  "name": "Village Activity Permission Management System",
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#059669",
+  "display": "standalone",
+  "orientation": "portrait"
+}
