@@ -137,7 +137,7 @@ export default function App() {
           </div>
           <div className="flex gap-2">
             <span className="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 font-medium">
-              เน้นย้ำ: ข้อมูลหมู่บ้านแผนกสรรหาของบริจาคเชิงรุก
+              เน้นย้ำ: การสื่อสารความเสี่ยง (Risk Communication)
             </span>
           </div>
         </div>
