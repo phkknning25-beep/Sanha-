@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 export default function App() {
-  // 1. ฐานข้อมูลยุทธศาสตร์การจัดหาเชิงรุก (เพิ่มข้อมูลเริ่มต้นให้เนี๊ยบตามบรีฟ)
+  // 1. ฐานข้อมูลยุทธศาสตร์การจัดหาเชิงรุก (State หลัก)
   const [villages, setVillages] = useState([
     { id: 1, name: 'หมู่บ้านแสนสิริ สุขุมวิท 77', zone: 'กรุงเทพฯ ตะวันออก', contact: 'คุณสมศักดิ์ รักสงบ', phone: '081-234-5678', status: 'อนุญาตเข้าจัดกิจกรรม', years: '2024, 2025' },
     { id: 2, name: 'หมู่บ้านลัดดารมย์ ปิ่นเกล้า', zone: 'นนทบุรี / บางใหญ่', contact: 'คุณหญิงวรรณา รุ่งเรือง', phone: '089-876-5432', status: 'รอการตอบกลับ', years: '2024' },
@@ -9,7 +9,10 @@ export default function App() {
     { id: 4, name: 'หมู่บ้านเพอร์เฟค เพลส รัตนาธิเบศร์', zone: 'นนทบุรี / เมืองนนทบุรี', contact: 'คุณอัญชลี มีสุข', phone: '085-111-2233', status: 'อนุญาตเข้าจัดกิจกรรม', years: '2025' }
   ]);
 
-  // สเตตสำหรับควบคุมการเปิด/ปิดฟอร์ม และการจัดเก็บข้อมูลขณะคีย์
+  // ส่วนที่เพิ่ม: สเตตสำหรับเก็บคำค้นหา (Search Query)
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // สเตตสำหรับควบคุม Modal Form
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
@@ -24,38 +27,45 @@ export default function App() {
   });
 
   // ==========================================
-  // 📊 ส่วนที่แก้ไข: เปลี่ยนสถิติเป็น REAL-TIME DYNAMIC (ห้ามปรับโครงสร้าง UI)
+  // 🔍 ระบบตัวกรองคำค้นหา (Search Filtering Logic)
   // ==========================================
-  const totalCount = villages.length;
-  const approvedCount = villages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
-  const pendingCount = villages.filter(v => v.status === 'รอการตอบกลับ').length;
+  const filteredVillages = villages.filter(village => 
+    village.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    village.zone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    village.contact.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // สูตรคำนวณ 1: Reach %
-  const reachRate = totalCount > 0 ? ((approvedCount / totalCount) * 100).toFixed(1) : '0.0';
-  
-  // สูตรคำนวณ 2: อัตราความคุ้มค่า (ตัวคูณขยับตามสิทธิ์พื้นที่ที่ได้รับจริง)
-  const valueMultiplier = totalCount > 0 ? (1 + (approvedCount * 1.25)).toFixed(1) : '0.0';
-  const valueStatus = approvedCount >= 2 ? 'เกณฑ์ประสิทธิภาพสูง' : 'เกณฑ์กำลังพัฒนา';
+  // ==========================================
+  // 📊 ระบบคำนวณสถิติเชิงยุทธศาสตร์แบบ Real-time (ปรับสเกลตามตัวกรอง)
+  // ==========================================
+  const total = filteredVillages.length;
+  const approved = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
+  const pending = filteredVillages.filter(v => v.status === 'รอการตอบกลับ').length;
 
-  // สูตรคำนวณ 3: ความสำเร็จการสื่อสารความเสี่ยง (วัดผลจากเคสที่เคลียร์จบ ไม่ค้างรอการตอบกลับ)
-  const riskRate = totalCount > 0 ? (((totalCount - pendingCount) / totalCount) * 100).toFixed(1) : '0.0';
-  const riskStatus = parseFloat(riskRate) >= 75 ? 'อยู่ในเกณฑ์ดีเยี่ยม' : 'ควรเร่งสื่อสารเพิ่มเติม';
+  const reachRate = total > 0 ? ((approved / total) * 100).toFixed(1) : '0.0';
+  const reachChange = total > 0 ? `คำนวณจากตัวกรอง ${total} พื้นที่` : 'ไม่มีข้อมูลการค้นหา';
+
+  const costValue = total > 0 ? (1 + (approved * 1.25)).toFixed(1) : '0.0';
+  const costStatus = approved >= 2 ? 'เกณฑ์ประสิทธิภาพสูง' : 'เกณฑ์กำลังพัฒนา';
+
+  const riskSuccess = total > 0 ? (((total - pending) / total) * 100).toFixed(1) : '0.0';
+  const riskStatus = parseFloat(riskSuccess) >= 75 ? 'อยู่ในเกณฑ์ดีเยี่ยม' : 'ควรเร่งสื่อสารเพิ่มเติม';
 
   const stats = [
-    { label: 'อัตราการเข้าถึงเป้าหมาย (Reach)', value: `${reachRate}%`, change: `คำนวณจากสารบบ ${totalCount} พื้นที่`, icon: '📈' },
-    { label: 'อัตราความคุ้มค่าต่อส่วนรวม', value: `1:${valueMultiplier}`, change: valueStatus, icon: '💎' },
-    { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskRate}%`, change: riskStatus, icon: '🛡️' },
+    { label: 'อัตราการเข้าถึงเป้าหมาย (Reach)', value: `${reachRate}%`, change: reachChange, icon: '📈' },
+    { label: 'อัตราความคุ้มค่าต่อส่วนรวม', value: `1:${costValue}`, change: costStatus, icon: '💎' },
+    { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskSuccess}%`, change: riskStatus, icon: '🛡️' },
   ];
   // ==========================================
 
-  // ฟังก์ชันเปิดฟอร์มเพื่อเพิ่มข้อมูลใหม่
+  // ฟังก์ชันเปิดฟอร์มเพื่อลงทะเบียนหมู่บ้านใหม่
   const handleOpenAdd = () => {
     setIsEditing(false);
     setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '' });
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันเปิดฟอร์มเพื่อแก้ไขข้อมูลเดิม
+  // ฟังก์ชันเปิดฟอร์มเพื่อแก้ไขข้อมูลเดิม (ปุ่มแก้ไขในตาราง)
   const handleOpenEdit = (village) => {
     setIsEditing(true);
     setCurrentId(village.id);
@@ -70,14 +80,14 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันลบข้อมูลหมู่บ้านจัดสรร
+  // ฟังก์ชันลบข้อมูลหมู่บ้านจัดสรร (ปุ่มลบในตาราง)
   const handleDelete = (id) => {
-    if (window.confirm('คุณหนิงแน่ใจใช่ไหมคะว่าต้องการลบสารบบข้อมูลหมู่บ้านนี้ออกถาวร?')) {
+    if (window.confirm('คุณหนิงแน่ใจใช่ไหมคะว่าต้องการลบข้อมูลหมู่บ้านนี้ออกจากสารบบถาวร?')) {
       setVillages(villages.filter(v => v.id !== id));
     }
   };
 
-  // ฟังก์ชันบันทึกข้อมูล (บันทึกทั้งเคสเพิ่มใหม่ และเคสแก้ไข)
+  // ฟังก์ชันกดบันทึกข้อมูล (ใช้ร่วมกันทั้งเพิ่มใหม่และแก้ไขข้อมูลเดิม)
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.zone) {
@@ -89,7 +99,7 @@ export default function App() {
       setVillages(villages.map(v => v.id === currentId ? { ...v, ...formData } : v));
     } else {
       const newVillage = {
-        id: Date.now(), // ใช้ Timestamp เพื่อป้องกันไอดีซ้ำกัน
+        id: Date.now(),
         ...formData
       };
       setVillages([...villages, newVillage]);
@@ -127,7 +137,7 @@ export default function App() {
           </div>
           <div className="flex gap-2">
             <span className="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 font-medium">
-              เน้นย้ำ: การสื่อสารความเสี่ยง (Risk Communication)
+              เน้นย้ำ: ข้อมูลหมู่บ้านแผนกสรรหาของบริจาคเชิงรุก
             </span>
           </div>
         </div>
@@ -145,17 +155,19 @@ export default function App() {
           </div>
         )}
 
-        {/* 📊 STATS CARDS */}
+        {/* 📊 STATS CARDS: แสดงผลสถิติแบบคำนวณ Real-time */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           {stats.map((item, index) => (
-            <div key={index} className="bg-[#111827] border border-slate-800/80 rounded-xl p-5 shadow-lg">
+            <div key={index} className="bg-[#111827] border border-slate-800/80 rounded-xl p-5 shadow-lg hover:border-slate-700 transition-all">
               <div className="flex justify-between items-start">
                 <p className="text-xs font-medium text-slate-400 tracking-wide uppercase">{item.label}</p>
                 <span className="text-lg">{item.icon}</span>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-white tracking-tight font-mono">{item.value}</span>
-                <span className={`text-[11px] font-medium ${item.change.includes('ควรเร่ง') || item.value.includes('0.0') ? 'text-rose-400' : 'text-emerald-400'}`}>{item.change}</span>
+                <span className={`text-[11px] font-medium ${
+                  item.value.includes('0.0') || item.change.includes('เพิ่มเติม') ? 'text-rose-400' : 'text-emerald-400'
+                }`}>{item.change}</span>
               </div>
             </div>
           ))}
@@ -169,14 +181,36 @@ export default function App() {
               <h3 className="font-semibold text-white text-sm tracking-wide flex items-center gap-2">
                 📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">สถิตและทำเนียบข้อมูลการขออนุญาตเข้าทำกิจกรรมภายในหมู่บ้านจัดสรร</p>
+              <p className="text-xs text-slate-400 mt-0.5">สถิติและทำเนียบข้อมูลการขออนุญาตเข้าทำกิจกรรมภายในหมู่บ้านจัดสรร</p>
             </div>
-            <button 
-              onClick={handleOpenAdd}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all shadow-lg shadow-emerald-600/10 flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>➕</span> ลงทะเบียนหมู่บ้านเพิ่ม
-            </button>
+            
+            {/* 🔍 ส่วนที่เพิ่มเข้ามาใหม่: กล่องป้อนคำค้นหา (Search Inputs Group) */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-xs">🔍</span>
+                <input 
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="ค้นหาชื่อหมู่บ้าน โซน หรือผู้ติดต่อ..."
+                  className="w-full bg-[#0b0f19] border border-slate-800 text-slate-200 text-xs rounded-lg pl-9 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors tracking-wide"
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <button 
+                onClick={handleOpenAdd}
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all shadow-lg shadow-emerald-600/10 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <span>➕</span> ลงทะเบียนหมู่บ้านเพิ่ม
+              </button>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -193,7 +227,8 @@ export default function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {villages.map((v) => (
+                {/* ดึงตัวแปร filteredVillages มาวนลูปแสดงผลแทนเพื่อให้ช่องค้นหาทำงานได้จริง */}
+                {filteredVillages.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-800/30 transition-colors duration-150">
                     <td className="py-4 px-6 font-semibold text-white text-base">{v.name}</td>
                     <td className="py-4 px-6 text-slate-300 font-medium">{v.zone}</td>
@@ -243,10 +278,10 @@ export default function App() {
                     </td>
                   </tr>
                 ))}
-                {villages.length === 0 && (
+                {filteredVillages.length === 0 && (
                   <tr>
                     <td colSpan="7" className="py-8 px-6 text-center text-slate-500 italic bg-[#111827]/20">
-                      ไม่พบสารบบข้อมูลยุทธศาสตร์ในระบบ กรุณากดปุ่มเพิ่มข้อมูลด้านบนค่ะคุณหนิง
+                      ไม่พบข้อมูลรายชื่อหมู่บ้านที่ตรงกับคำค้นหาของคุณหนิงค่ะ 🔍
                     </td>
                   </tr>
                 )}
