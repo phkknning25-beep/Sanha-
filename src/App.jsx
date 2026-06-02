@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (อัปเกรดเป็น V3 เพื่อรองรับฟิลด์หลังคาเรือน)
+  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (V3)
   const [villages, setVillages] = useState(() => {
     try {
       const savedVillagesV3 = localStorage.getItem('v_permission_villages_secure_v3');
@@ -9,7 +9,6 @@ export default function App() {
         const parsed = JSON.parse(savedVillagesV3);
         if (Array.isArray(parsed)) return parsed;
       }
-
       const oldSavedVillages = localStorage.getItem('v_permission_villages_secure_v2');
       if (oldSavedVillages) {
         const parsedOld = JSON.parse(oldSavedVillages);
@@ -26,7 +25,7 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
 
-  // สเตตสำหรับฟอร์มกรอกข้อมูล (เพิ่มฟิลด์ households)
+  // สเตตสำหรับฟอร์มกรอกข้อมูล
   const [formData, setFormData] = useState({
     name: '',
     zone: '',
@@ -34,7 +33,7 @@ export default function App() {
     phone: '',
     status: 'รอการตอบกลับ',
     years: '',
-    households: '', // 🏠 เพิ่มช่องเก็บจำนวนหลังคาเรือน
+    households: '', 
     activityLogs: [] 
   });
 
@@ -45,6 +44,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('v_permission_villages_secure_v3', JSON.stringify(villages));
   }, [villages]);
+
+  // ลิสต์รายการปีตั้งแต่ 2022 - 2080 ยิงยาวตามคำขอครับ
+  const yearOptions = [];
+  for (let y = 2080; y >= 2022; y--) {
+    yearOptions.push(String(y));
+  }
 
   // ระบบสำรองข้อมูลถาวร
   const handleExportData = () => {
@@ -88,33 +93,9 @@ export default function App() {
     (village?.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 📊 ระบบคำนวณสถิติประเมินผลลัพธ์เชิงยุทธศาสตร์แบบใหม่ (คำนวณร่วมกับหลังคาเรือน)
-  const total = filteredVillages.length;
-  const approvedVillages = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม');
-  const approvedCount = approvedVillages.length;
-  const pending = filteredVillages.filter(v => v.status === 'รอการตอบกลับ').length;
-
-  // คำนวณหลังคาเรือนรวมทั้งหมด และหลังคาเรือนในพื้นที่ที่ได้รับอนุญาตแล้ว
   const totalHouseholds = filteredVillages.reduce((sum, v) => sum + (parseInt(v.households) || 0), 0);
-  const approvedHouseholds = approvedVillages.reduce((sum, v) => sum + (parseInt(v.households) || 0), 0);
 
-  const reachRate = total > 0 ? ((approvedCount / total) * 100).toFixed(1) : '0.0';
-  const reachChange = total > 0 ? `อนุมัติแล้ว ${approvedCount} จาก ${total} พื้นที่` : 'ไม่มีข้อมูลการค้นหา';
-  
-  // ปรับสูตรความคุ้มค่า: อิงตามสัดส่วนจำนวนหลังคาเรือนที่เข้าถึงได้จริง
-  const costValue = approvedHouseholds > 0 ? (approvedHouseholds * 1.1).toFixed(0) : '0';
-  const costStatus = approvedHouseholds > 0 ? `เข้าถึงได้ ${approvedHouseholds.toLocaleString()} หลังคาเรือน` : 'ยังไม่มีเป้าหมายที่อนุมัติ';
-  
-  const riskSuccess = total > 0 ? (((total - pending) / total) * 100).toFixed(1) : '0.0';
-  const riskStatus = parseFloat(riskSuccess) >= 75 ? 'อยู่ในเกณฑ์ดีเยี่ยม' : 'ควรเร่งสื่อสารเพิ่มเติม';
-
-  const stats = [
-    { label: 'อัตราการเข้าถึงเป้าหมาย (Reach)', value: `${reachRate}%`, change: reachChange, icon: '📈' },
-    { label: 'ประมาณการผู้รับประโยชน์รวม', value: `${Number(costValue).toLocaleString()} ราย`, change: costStatus, icon: '💎' },
-    { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskSuccess}%`, change: riskStatus, icon: '🛡️' },
-  ];
-
-  // 📅 จัดกรุ๊ปข้อมูลกำหนดการด้านซ้าย (กรองเอาเฉพาะกิจกรรมที่เกิดขึ้นใน "ปีปัจจุบัน")
+  // 📅 จัดกรุ๊ปข้อมูลกำหนดการเพื่อไปโชว์ด้านบน (เฉพาะของปีปัจจุบัน)
   const currentYearStr = String(new Date().getFullYear());
   const upcomingGrouped = villages.reduce((groups, village) => {
     const logs = village?.activityLogs || [];
@@ -158,14 +139,13 @@ export default function App() {
       phone: village.phone || '',
       status: village.status || 'รอการตอบกลับ',
       years: village.years || '',
-      households: village.households || '', // ดึงค่าหลังคาเรือนเดิมมาแสดงผลในฟอร์มแก้ไข
+      households: village.households || '',
       activityLogs: initialLogs
     });
     setLogInput({ year: String(new Date().getFullYear()), date: '' });
     setIsModalOpen(true);
   };
 
-  // ฟังก์ชันย่อยสำหรับกดเพิ่มคู่ข้อมูลกิจกรรมลงในตารางของฟอร์ม
   const handleAddLog = () => {
     if (!logInput.date.trim()) {
       alert('กรุณากรอกวันที่จัดกิจกรรมด้วยค่ะ');
@@ -178,7 +158,6 @@ export default function App() {
     setLogInput({ ...logInput, date: '' }); 
   };
 
-  // ฟังก์ชันย่อยสำหรับลบประวัติกิจกรรมที่ไม่เอาออก
   const handleRemoveLog = (indexToRemove) => {
     setFormData({
       ...formData,
@@ -242,184 +221,156 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         
         {/* 📢 TITLE & FOCUS */}
-        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div>
             <h2 className="text-2xl font-bold text-[#1e293b] tracking-tight">ระบบกิจกรรมแผนกสรรหาของบริจาคเชิงรุก</h2>
-            <p className="text-[#64748b] text-sm mt-1">แพลตฟอร์มวิเคราะห์ยุทธศาสตร์พื้นที่และการประเมินผลประโยชน์เพื่อส่วนรวม</p>
+            <p className="text-[#64748b] text-sm mt-0.5">แพลตฟอร์มวิเคราะห์ยุทธศาสตร์พื้นที่และการประเมินผลประโยชน์เพื่อส่วนรวม</p>
           </div>
           <div className="flex gap-2">
-            <span className="text-xs bg-[#fffbeb] text-[#b45309] px-3 py-1.5 rounded-lg border border-[#fde68a] font-medium">
+            <span className="text-xs bg-[#fffbeb] text-[#b45309] px-3 py-1.5 rounded-lg border border-[#fde68a] font-bold">
               🏠 รวมทั้งสิ้น: {totalHouseholds.toLocaleString()} หลังคาเรือนเป้าหมาย
             </span>
           </div>
         </div>
 
-        {/* 📊 STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {stats.map((item, index) => (
-            <div key={index} className="bg-white border border-[#e2e8f0] hover:border-[#f59e0b] rounded-xl p-5 shadow-sm transition-all">
-              <div className="flex justify-between items-start">
-                <p className="text-xs font-semibold text-[#64748b] tracking-wide uppercase">{item.label}</p>
-                <span className="text-lg">{item.icon}</span>
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-[#1e293b] tracking-tight font-mono">{item.value}</span>
-                <span className={`text-[11px] font-semibold ${
-                  item.value.includes('0.0') || item.change.includes('เพิ่มเติม') ? 'text-rose-500' : 'text-[#d97706]'
-                }`}>{item.change}</span>
-              </div>
+        {/* 🗓️ ย้ายกำหนดการประจำปีมาไว้ด้านบนสุด (ปรับเป็นสไตล์แนวนอน ชิค ๆ ประหยัดพื้นที่) */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-sm mb-6">
+          <h3 className="text-xs font-bold text-[#b45309] tracking-wider uppercase flex items-center gap-1.5 mb-3 bg-[#fffbeb] p-2 rounded-lg border border-[#fde68a] w-fit">
+            🗓️ กำหนดการเข้าทำกิจกรรมประจำปี {currentYearStr}
+          </h3>
+          
+          {Object.keys(upcomingGrouped).length === 0 ? (
+            <div className="py-2 text-[#94a3b8] text-xs italic">
+              ไม่มีกำหนดการเข้าทำกิจกรรมในปีนี้ค่ะคุณหนิง
             </div>
-          ))}
+          ) : (
+            <div className="flex flex-wrap gap-4 overflow-x-auto pb-1">
+              {Object.keys(upcomingGrouped).map((date, idx) => (
+                <div key={idx} className="border-l-2 border-[#f59e0b] pl-3 py-1 bg-[#fafafa] rounded-r-lg p-3 border border-[#e2e8f0] min-w-[200px] flex-1">
+                  <p className="text-xs font-bold text-[#1e293b] font-mono mb-1 flex items-center gap-1">
+                    📅 วันที่ {date}
+                  </p>
+                  <ul className="space-y-0.5 text-xs text-[#475569] list-disc pl-4 font-semibold">
+                    {upcomingGrouped[date].map((village, vIdx) => (
+                      <li key={vIdx}>
+                        {village.name} <span className="text-[10px] text-slate-400 font-mono">({village.households || 0} ครัวเรือน)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* 🏢 2-COLUMN LAYOUT */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* 🗃️ ส่วนตารางหลัก: ขยายกว้างเต็มร้อยเซนติเมตร อ่านง่ายสบายตา */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl overflow-hidden shadow-sm">
           
-          {/* 📅 COLUMN ด้านซ้าย: กำหนดการแอปพลิเคชันประจำปีนี้ */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-[#b45309] tracking-wider uppercase flex items-center gap-1.5 mb-3 bg-[#fffbeb] p-2 rounded-lg border border-[#fde68a]">
-                🗓️ กำหนดการประจำปี {currentYearStr}
+          <div className="px-6 py-4 border-b border-[#e2e8f0] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#fafafa]">
+            <div>
+              <h3 className="font-bold text-[#1e293b] text-sm tracking-wide flex items-center gap-2">
+                📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
               </h3>
-              
-              {Object.keys(upcomingGrouped).length === 0 ? (
-                <div className="text-center py-6 text-[#94a3b8] text-xs italic">
-                  ไม่มีกำหนดการเข้าทำกิจกรรมในปีนี้ค่ะคุณหนิง
-                </div>
-              ) : (
-                <div className="space-y-4 overflow-y-auto max-h-[450px] pr-1">
-                  {Object.keys(upcomingGrouped).map((date, idx) => (
-                    <div key={idx} className="border-l-2 border-[#f59e0b] pl-3 py-1 bg-[#fafafa] rounded-r-lg p-2 border border-[#e2e8f0] border-l-0">
-                      <p className="text-xs font-bold text-[#1e293b] font-mono mb-1.5 flex items-center gap-1">
-                        📅 {date}
-                      </p>
-                      <ol className="space-y-1 text-xs text-[#475569] list-decimal pl-4 font-medium">
-                        {upcomingGrouped[date].map((village, vIdx) => (
-                          <li key={vIdx} className="hover:text-[#f59e0b] transition-colors">
-                            {village.name} <span className="text-[10px] text-slate-400 font-mono">({village.households || 0} ครัวเรือน)</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <p className="text-xs text-[#64748b] mt-0.5">ระบบลงทะเบียนประวัติและรายละเอียดพื้นที่เป้าหมายทั้งหมด</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#94a3b8] text-xs">🔍</span>
+                <input 
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="ค้นหาชื่อหมู่บ้าน โซน หรือผู้ติดต่อ..."
+                  className="w-full bg-[#f8fafc] border border-[#e2e8f0] text-[#334155] text-xs rounded-lg pl-9 pr-4 py-2.5 focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors tracking-wide"
+                />
+              </div>
+              <button 
+                onClick={handleOpenAdd}
+                className="w-full sm:w-auto bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <span>➕</span> ลงทะเบียนหมู่บ้านเพิ่ม
+              </button>
             </div>
           </div>
-
-          {/* 🗃️ COLUMN ด้านขวา: ตารางหลักแสดงทำเนียบข้อมูล */}
-          <div className="lg:col-span-3">
-            <div className="bg-white border border-[#e2e8f0] rounded-xl overflow-hidden shadow-sm">
-              
-              <div className="px-6 py-4 border-b border-[#e2e8f0] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#fafafa]">
-                <div>
-                  <h3 className="font-bold text-[#1e293b] text-sm tracking-wide flex items-center gap-2">
-                    📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
-                  </h3>
-                  <p className="text-xs text-[#64748b] mt-0.5">ระบบประวัติกิจกรรมแยกรายปีพร้อมบันทึกจำนวนหลังคาเรือน</p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                  <div className="relative w-full sm:w-64">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#94a3b8] text-xs">🔍</span>
-                    <input 
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="ค้นหาชื่อหมู่บ้าน โซน หรือผู้ติดต่อ..."
-                      className="w-full bg-[#f8fafc] border border-[#e2e8f0] text-[#334155] text-xs rounded-lg pl-9 pr-4 py-2.5 focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors tracking-wide"
-                    />
-                  </div>
-                  <button 
-                    onClick={handleOpenAdd}
-                    className="w-full sm:w-auto bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  >
-                    <span>➕</span> ลงทะเบียนหมู่บ้านเพิ่ม
-                  </button>
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-[#e2e8f0] text-[#64748b] bg-[#f1f5f9] text-xs uppercase tracking-wider font-bold">
-                      <th className="py-4 px-6">ชื่อหมู่บ้านจัดสรร</th>
-                      <th className="py-4 px-4 text-center">หลังคาเรือน</th>
-                      <th className="py-4 px-6">โซน / อำเภอ</th>
-                      <th className="py-4 px-6">ผู้แทนนิติบุคคล</th>
-                      <th className="py-4 px-6">เบอร์โทรศัพท์</th>
-                      <th className="py-4 px-6">สถานะล่าสุด</th>
-                      <th className="py-4 px-6">ประวัติและกำหนดการทำงานรายปี</th>
-                      <th className="py-4 px-6 text-center">การจัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#e2e8f0]">
-                    {filteredVillages.map((v) => (
-                      <tr key={v.id} className="hover:bg-[#f8fafc] transition-colors duration-150">
-                        <td className="py-4 px-6 font-bold text-[#1e293b] text-base">{v.name}</td>
-                        {/* 🏠 แสดงผลคอลัมน์หลังคาเรือนแบบเด่นชัด */}
-                        <td className="py-4 px-4 text-center font-bold text-slate-700 font-mono bg-slate-50/50">
-                          {v.households ? Number(v.households).toLocaleString() : '-'}
-                        </td>
-                        <td className="py-4 px-6 text-[#475569] font-medium">{v.zone}</td>
-                        <td className="py-4 px-6 text-[#475569]">{v.contact}</td>
-                        <td className="py-4 px-6 text-[#64748b] font-mono tracking-wide">{v.phone || '-'}</td>
-                        <td className="py-4 px-6">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                            v.status?.includes('อนุญาต') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            v.status?.includes('รอ') ? 'bg-amber-50 text-[#b45309] border-amber-200' :
-                            'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              v.status?.includes('อนุญาต') ? 'bg-emerald-500' :
-                              v.status?.includes('รอ') ? 'bg-[#f59e0b]' : 'bg-rose-500'
-                            }`}></span>
-                            {v.status}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex flex-wrap gap-1.5 max-w-xs">
-                            {Array.isArray(v.activityLogs) && v.activityLogs.length > 0 ? (
-                              v.activityLogs.map((log, lIdx) => (
-                                <span key={lIdx} className="inline-block bg-[#fffbeb] text-[#b45309] border border-[#fde68a] text-[11px] px-2 py-0.5 rounded font-medium shadow-sm">
-                                  <span className="opacity-60 font-bold font-mono mr-1">{log.year}:</span>
-                                  {log.date}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-[#94a3b8] text-xs italic">ไม่มีบันทึกข้อมูล</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          <div className="flex justify-center gap-2">
-                            <button onClick={() => handleOpenEdit(v)} className="text-xs bg-white hover:bg-[#fffbeb] text-[#d97706] border border-[#fde68a] px-2.5 py-1 rounded-md transition-all cursor-pointer font-semibold">✏️ แก้ไข</button>
-                            <button onClick={() => handleDelete(v.id)} className="text-xs bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-md transition-all cursor-pointer font-semibold">🗑️ ลบ</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredVillages.length === 0 && (
-                      <tr>
-                        <td colSpan="8" className="py-8 px-6 text-center text-[#94a3b8] italic bg-[#fafafa]">
-                          ไม่พบข้อมูลหมู่บ้านในตารางนี้ค่ะ 🔍
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              
-            </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-[#e2e8f0] text-[#64748b] bg-[#f1f5f9] text-xs uppercase tracking-wider font-bold">
+                  <th className="py-4 px-6 min-w-[160px]">ชื่อหมู่บ้านจัดสรร</th>
+                  <th className="py-4 px-4 text-center">หลังคาเรือน</th>
+                  <th className="py-4 px-6">โซน / อำเภอ</th>
+                  <th className="py-4 px-6">ผู้แทนนิติบุคคล</th>
+                  <th className="py-4 px-6">เบอร์โทรศัพท์</th>
+                  <th className="py-4 px-6">สถานะล่าสุด</th>
+                  <th className="py-4 px-6 min-w-[220px]">ประวัติและกำหนดการทำงานรายปี</th>
+                  <th className="py-4 px-6 text-center">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e2e8f0]">
+                {filteredVillages.map((v) => (
+                  <tr key={v.id} className="hover:bg-[#f8fafc] transition-colors duration-150">
+                    <td className="py-4 px-6 font-bold text-[#1e293b] text-base">{v.name}</td>
+                    <td className="py-4 px-4 text-center font-bold text-slate-700 font-mono bg-slate-50/50">
+                      {v.households ? Number(v.households).toLocaleString() : '-'}
+                    </td>
+                    <td className="py-4 px-6 text-[#475569] font-medium">{v.zone}</td>
+                    <td className="py-4 px-6 text-[#475569]">{v.contact}</td>
+                    <td className="py-4 px-6 text-[#64748b] font-mono tracking-wide">{v.phone || '-'}</td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                        v.status?.includes('อนุญาต') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        v.status?.includes('รอ') ? 'bg-amber-50 text-[#b45309] border-amber-200' :
+                        'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          v.status?.includes('อนุญาต') ? 'bg-emerald-500' :
+                          v.status?.includes('รอ') ? 'bg-[#f59e0b]' : 'bg-rose-500'
+                        }`}></span>
+                        {v.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex flex-wrap gap-1.5 max-w-sm">
+                        {Array.isArray(v.activityLogs) && v.activityLogs.length > 0 ? (
+                          v.activityLogs.map((log, lIdx) => (
+                            <span key={lIdx} className="inline-block bg-[#fffbeb] text-[#b45309] border border-[#fde68a] text-[11px] px-2 py-0.5 rounded font-bold shadow-sm">
+                              <span className="opacity-60 font-mono mr-1">{log.year}:</span>
+                              {log.date}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[#94a3b8] text-xs italic">ไม่มีบันทึกข้อมูล</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => handleOpenEdit(v)} className="text-xs bg-white hover:bg-[#fffbeb] text-[#d97706] border border-[#fde68a] px-2.5 py-1 rounded-md transition-all cursor-pointer font-semibold">✏️ แก้ไข</button>
+                        <button onClick={() => handleDelete(v.id)} className="text-xs bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-md transition-all cursor-pointer font-semibold">🗑️ ลบ</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredVillages.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="py-8 px-6 text-center text-[#94a3b8] italic bg-[#fafafa]">
+                      ไม่พบข้อมูลหมู่บ้านในตารางนี้ค่ะ 🔍
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-
+          
         </div>
       </main>
 
-      {/* 📋 MODAL FORM: ปรับเพิ่มฟิลด์ป้อนข้อมูลจำนวนหลังคาเรือน */}
+      {/* 📋 MODAL FORM: อัปเดตให้รองรับลูปปี ค.ศ. 2022 - 2080 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-lg overflow-hidden shadow-xl max-h-[90vh] flex flex-col">
@@ -434,7 +385,6 @@ export default function App() {
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">ชื่อหมู่บ้านจัดสรร <span className="text-rose-500">*</span></label>
                   <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="เช่น หมู่บ้านลัดดารมย์" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors" />
                 </div>
-                {/* ช่องกรอกจำนวนหลังคาเรือน */}
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">หลังคาเรือน</label>
                   <input type="number" min="0" value={formData.households} onChange={(e) => setFormData({...formData, households: e.target.value})} placeholder="เช่น 350" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors font-mono font-bold" />
@@ -463,7 +413,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 📅 ระบบป้อนข้อมูลประวัติกิจกรรมแบบระบุปีได้และสะสมลิสต์ได้ */}
+              {/* 📅 ระบบป้อนข้อมูลประวัติกิจกรรมช่วงปี 2022 - 2080 */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider">🗓️ ส่วนบันทึกแผนงานและประวัติกิจกรรมรายปี</label>
                 
@@ -475,11 +425,10 @@ export default function App() {
                       onChange={(e) => setLogInput({...logInput, year: e.target.value})}
                       className="w-full bg-white border border-[#e2e8f0] rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-[#f59e0b] font-mono font-bold"
                     >
-                      <option value="2027">2027</option>
-                      <option value="2026">2026</option>
-                      <option value="2025">2025</option>
-                      <option value="2024">2024</option>
-                      <option value="2023">2023</option>
+                      {/* ดึงตัวเลือกปีที่เราลูปไว้ช่วง 2022 - 2080 */}
+                      {yearOptions.map(yr => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="flex-1">
@@ -501,7 +450,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* รายการประวัติที่ถูกแอดไว้ */}
                 <div className="pt-2">
                   <p className="text-[10px] text-slate-400 font-bold mb-1.5 uppercase tracking-wide">รายการประวัติบันทึกในสารบบขณะนี้:</p>
                   {formData.activityLogs.length === 0 ? (
