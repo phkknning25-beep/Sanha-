@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (V3)
+  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (V4)
   const [villages, setVillages] = useState(() => {
     try {
-      const savedVillagesV3 = localStorage.getItem('v_permission_villages_secure_v3');
-      if (savedVillagesV3) {
-        const parsed = JSON.parse(savedVillagesV3);
+      const savedVillagesV4 = localStorage.getItem('v_permission_villages_secure_v4');
+      if (savedVillagesV4) {
+        const parsed = JSON.parse(savedVillagesV4);
         if (Array.isArray(parsed)) return parsed;
       }
-      const oldSavedVillages = localStorage.getItem('v_permission_villages_secure_v2');
+      const oldSavedVillages = localStorage.getItem('v_permission_villages_secure_v3');
       if (oldSavedVillages) {
         const parsedOld = JSON.parse(oldSavedVillages);
         if (Array.isArray(parsedOld)) return parsedOld;
@@ -25,13 +25,13 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
 
-  // สเตตสำหรับฟอร์มกรอกข้อมูล
+  // สเตตสำหรับฟอร์มกรอกข้อมูล (ค่าเริ่มต้นเป็น "ยังไม่ได้โทร")
   const [formData, setFormData] = useState({
     name: '',
     zone: '',
     contact: '',
     phone: '',
-    status: 'รอการตอบกลับ',
+    status: '📞 ยังไม่ได้โทร',
     years: '',
     households: '', 
     activityLogs: [] 
@@ -42,10 +42,10 @@ export default function App() {
 
   // ระบบ auto-save
   useEffect(() => {
-    localStorage.setItem('v_permission_villages_secure_v3', JSON.stringify(villages));
+    localStorage.setItem('v_permission_villages_secure_v4', JSON.stringify(villages));
   }, [villages]);
 
-  // ลิสต์รายการปีตั้งแต่ 2022 - 2080 ยิงยาวตามคำขอครับ
+  // ลิสต์รายการปีตั้งแต่ 2022 - 2080
   const yearOptions = [];
   for (let y = 2080; y >= 2022; y--) {
     yearOptions.push(String(y));
@@ -54,7 +54,7 @@ export default function App() {
   // ระบบสำรองข้อมูลถาวร
   const handleExportData = () => {
     if (villages.length === 0) {
-      alert('ยังไม่มีข้อมูลในสารบบให้ส่งออกค่ะคุณหนิง');
+      alert('ยังไม่มีข้อมูลในสารบบให้ส่งออกค่ะ');
       return;
     }
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(villages));
@@ -76,7 +76,7 @@ export default function App() {
         const parsedData = JSON.parse(event.target.result);
         if (Array.isArray(parsedData)) {
           setVillages(parsedData);
-          alert('📂 ดึงคืนฐานข้อมูลถาวรเสร็จสมบูรณ์เรียบร้อยแล้วค่ะคุณหนิง!');
+          alert('📂 ดึงคืนฐานข้อมูลถาวรเสร็จสมบูรณ์เรียบร้อยแล้วค่ะ!');
         } else {
           alert('รูปแบบไฟล์พิมพ์เขียวไม่ถูกต้องค่ะ');
         }
@@ -90,12 +90,13 @@ export default function App() {
   const filteredVillages = villages.filter(village => 
     (village?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (village?.zone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (village?.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (village?.contact || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (village?.status || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalHouseholds = filteredVillages.reduce((sum, v) => sum + (parseInt(v.households) || 0), 0);
 
-  // 📅 จัดกรุ๊ปข้อมูลกำหนดการเพื่อไปโชว์ด้านบน (เฉพาะของปีปัจจุบัน)
+  // 📅 จัดกรุ๊ปข้อมูลกำหนดการ (เฉพาะของปีปัจจุบัน)
   const currentYearStr = String(new Date().getFullYear());
   const upcomingGrouped = villages.reduce((groups, village) => {
     const logs = village?.activityLogs || [];
@@ -113,10 +114,29 @@ export default function App() {
     return groups;
   }, {});
 
+  // ฟังก์ชันสไตล์สีกรณีแยกตามสถานะเชิงลึก
+  const getStatusStyle = (status) => {
+    const s = status || '';
+    if (s.includes('อนุมัติแล้ว')) {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    }
+    if (s.includes('ปฏิเสธ')) {
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    }
+    if (s.includes('ขอเลื่อน')) {
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+    if (s.includes('รอเอกสาร') || s.includes('รอประชุม') || s.includes('รอผลอนุมัติ')) {
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    }
+    // ยังไม่ได้โทร, ส่งหนังสือแล้ว
+    return 'bg-slate-100 text-slate-700 border-slate-300';
+  };
+
   // ฟังก์ชันควบคุมฟอร์ม
   const handleOpenAdd = () => {
     setIsEditing(false);
-    setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '', households: '', activityLogs: [] });
+    setFormData({ name: '', zone: '', contact: '', phone: '', status: '📞 ยังไม่ได้โทร', years: '', households: '', activityLogs: [] });
     setLogInput({ year: String(new Date().getFullYear()), date: '' });
     setIsModalOpen(true);
   };
@@ -132,12 +152,18 @@ export default function App() {
       initialLogs = [{ year: String(new Date().getFullYear()), date: village.eventDate }];
     }
 
+    // กรณีข้อมูลเก่าเป็นสถานะเดิม map ให้เข้ากับสเตตัสใหม่เบื้องต้นแบบเนียน ๆ
+    let mappedStatus = village.status || '📞 ยังไม่ได้โทร';
+    if (mappedStatus === 'อนุญาตเข้าจัดกิจกรรม') mappedStatus = '✅ อนุมัติแล้ว';
+    if (mappedStatus === 'ปฏิเสธการเข้าทำ') mappedStatus = '❌ ปฏิเสธ';
+    if (mappedStatus === 'รอการตอบกลับ') mappedStatus = '⏳ รอผลอนุมัติ';
+
     setFormData({
       name: village.name || '',
       zone: village.zone || '',
       contact: village.contact || '',
       phone: village.phone || '',
-      status: village.status || 'รอการตอบกลับ',
+      status: mappedStatus,
       years: village.years || '',
       households: village.households || '',
       activityLogs: initialLogs
@@ -166,7 +192,7 @@ export default function App() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('คุณหนิงแน่ใจใช่ไหมคะว่าต้องการลบข้อมูลหมู่บ้านนี้ออกจากสารบบถาวร?')) {
+    if (window.confirm('คุณแน่ใจใช่ไหมว่าต้องการลบข้อมูลหมู่บ้านนี้ออกจากสารบบถาวร?')) {
       setVillages(villages.filter(v => v.id !== id));
     }
   };
@@ -174,7 +200,7 @@ export default function App() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.zone) {
-      alert('กรุณากรอกชื่อหมู่บ้านและโซนพื้นที่ด้วยค่ะคุณหนิง');
+      alert('กรุณากรอกชื่อหมู่บ้านและโซนพื้นที่ด้วยค่ะ');
       return;
     }
 
@@ -236,7 +262,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 🗓️ ย้ายกำหนดการประจำปีมาไว้ด้านบนสุด (ปรับเป็นสไตล์แนวนอน ชิค ๆ ประหยัดพื้นที่) */}
+        {/* 🗓️ กำหนดการประจำปีด้านบนสุด */}
         <div className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-sm mb-6">
           <h3 className="text-xs font-bold text-[#b45309] tracking-wider uppercase flex items-center gap-1.5 mb-3 bg-[#fffbeb] p-2 rounded-lg border border-[#fde68a] w-fit">
             🗓️ กำหนดการเข้าทำกิจกรรมประจำปี {currentYearStr}
@@ -244,7 +270,7 @@ export default function App() {
           
           {Object.keys(upcomingGrouped).length === 0 ? (
             <div className="py-2 text-[#94a3b8] text-xs italic">
-              ไม่มีกำหนดการเข้าทำกิจกรรมในปีนี้ค่ะคุณหนิง
+              ไม่มีกำหนดการเข้าทำกิจกรรมในปีนี้ค่ะ
             </div>
           ) : (
             <div className="flex flex-wrap gap-4 overflow-x-auto pb-1">
@@ -284,7 +310,7 @@ export default function App() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="ค้นหาชื่อหมู่บ้าน โซน หรือผู้ติดต่อ..."
+                  placeholder="ค้นหาชื่อหมู่บ้าน โซน ผู้ติดต่อ หรือสถานะ..."
                   className="w-full bg-[#f8fafc] border border-[#e2e8f0] text-[#334155] text-xs rounded-lg pl-9 pr-4 py-2.5 focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors tracking-wide"
                 />
               </div>
@@ -306,7 +332,7 @@ export default function App() {
                   <th className="py-4 px-6">โซน / อำเภอ</th>
                   <th className="py-4 px-6">ผู้แทนนิติบุคคล</th>
                   <th className="py-4 px-6">เบอร์โทรศัพท์</th>
-                  <th className="py-4 px-6">สถานะล่าสุด</th>
+                  <th className="py-4 px-6 min-w-[150px]">สถานะดำเนินงานเชิงลึก</th>
                   <th className="py-4 px-6 min-w-[220px]">ประวัติและกำหนดการทำงานรายปี</th>
                   <th className="py-4 px-6 text-center">การจัดการ</th>
                 </tr>
@@ -321,19 +347,14 @@ export default function App() {
                     <td className="py-4 px-6 text-[#475569] font-medium">{v.zone}</td>
                     <td className="py-4 px-6 text-[#475569]">{v.contact}</td>
                     <td className="py-4 px-6 text-[#64748b] font-mono tracking-wide">{v.phone || '-'}</td>
+                    
+                    {/* ⚙️ แสดงสเตตัสเชิงลึก 8 รูปแบบพร้อม Badge สีแยกกลุ่มกระบวนการ */}
                     <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                        v.status?.includes('อนุญาต') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        v.status?.includes('รอ') ? 'bg-amber-50 text-[#b45309] border-amber-200' :
-                        'bg-rose-50 text-rose-700 border-rose-200'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          v.status?.includes('อนุญาต') ? 'bg-emerald-500' :
-                          v.status?.includes('รอ') ? 'bg-[#f59e0b]' : 'bg-rose-500'
-                        }`}></span>
-                        {v.status}
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm ${getStatusStyle(v.status)}`}>
+                        {v.status || '📞 ยังไม่ได้โทร'}
                       </span>
                     </td>
+
                     <td className="py-4 px-6">
                       <div className="flex flex-wrap gap-1.5 max-w-sm">
                         {Array.isArray(v.activityLogs) && v.activityLogs.length > 0 ? (
@@ -370,7 +391,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* 📋 MODAL FORM: อัปเดตให้รองรับลูปปี ค.ศ. 2022 - 2080 */}
+      {/* 📋 MODAL FORM */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-lg overflow-hidden shadow-xl max-h-[90vh] flex flex-col">
@@ -413,7 +434,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 📅 ระบบป้อนข้อมูลประวัติกิจกรรมช่วงปี 2022 - 2080 */}
+              {/* บันทึกกิจกรรมรายปี 2022 - 2080 */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider">🗓️ ส่วนบันทึกแผนงานและประวัติกิจกรรมรายปี</label>
                 
@@ -425,7 +446,6 @@ export default function App() {
                       onChange={(e) => setLogInput({...logInput, year: e.target.value})}
                       className="w-full bg-white border border-[#e2e8f0] rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-[#f59e0b] font-mono font-bold"
                     >
-                      {/* ดึงตัวเลือกปีที่เราลูปไว้ช่วง 2022 - 2080 */}
                       {yearOptions.map(yr => (
                         <option key={yr} value={yr}>{yr}</option>
                       ))}
@@ -475,12 +495,22 @@ export default function App() {
                 </div>
               </div>
 
+              {/* ⚙️ ส่วนเลือกสถานะเชิงลึกแบบ Dropdown ครบทั้ง 8 รูปแบบ */}
               <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">สถานะล่าสุด</label>
-                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors cursor-pointer">
-                  <option value="อนุญาตเข้าจัดกิจกรรม">🟢 อนุญาตเข้าจัดกิจกรรม</option>
-                  <option value="รอการตอบกลับ">🟡 รอการตอบกลับ</option>
-                  <option value="ปฏิเสธการเข้าทำ">🔴 ปฏิเสธการเข้าทำ</option>
+                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">สถานะดำเนินงานเชิงลึก</label>
+                <select 
+                  value={formData.status} 
+                  onChange={(e) => setFormData({...formData, status: e.target.value})} 
+                  className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors cursor-pointer font-medium"
+                >
+                  <option value="📞 ยังไม่ได้โทร">📞 ยังไม่ได้โทร</option>
+                  <option value="📨 ส่งหนังสือแล้ว">📨 ส่งหนังสือแล้ว</option>
+                  <option value="📩 รอเอกสารเพิ่มเติม">📩 รอเอกสารเพิ่มเติม</option>
+                  <option value="👨‍💼 รอประชุมกรรมการ">👨‍💼 รอประชุมกรรมการ</option>
+                  <option value="⏳ รอผลอนุมัติ">⏳ รอผลอนุมัติ</option>
+                  <option value="✅ อนุมัติแล้ว">✅ อนุมัติแล้ว</option>
+                  <option value="❌ ปฏิเสธ">❌ ปฏิเสธ</option>
+                  <option value="🔄 ขอเลื่อน">🔄 ขอเลื่อน</option>
                 </select>
               </div>
 
