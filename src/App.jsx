@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย
+  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (อัปเกรดเป็น V3 เพื่อรองรับฟิลด์หลังคาเรือน)
   const [villages, setVillages] = useState(() => {
     try {
-      const savedVillagesV2 = localStorage.getItem('v_permission_villages_secure_v2');
-      if (savedVillagesV2) {
-        const parsed = JSON.parse(savedVillagesV2);
+      const savedVillagesV3 = localStorage.getItem('v_permission_villages_secure_v3');
+      if (savedVillagesV3) {
+        const parsed = JSON.parse(savedVillagesV3);
         if (Array.isArray(parsed)) return parsed;
       }
 
-      const oldSavedVillages = localStorage.getItem('v_permission_villages_secure');
+      const oldSavedVillages = localStorage.getItem('v_permission_villages_secure_v2');
       if (oldSavedVillages) {
         const parsedOld = JSON.parse(oldSavedVillages);
         if (Array.isArray(parsedOld)) return parsedOld;
@@ -26,7 +26,7 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
 
-  // สเตตสำหรับฟอร์มกรอกข้อมูล
+  // สเตตสำหรับฟอร์มกรอกข้อมูล (เพิ่มฟิลด์ households)
   const [formData, setFormData] = useState({
     name: '',
     zone: '',
@@ -34,7 +34,8 @@ export default function App() {
     phone: '',
     status: 'รอการตอบกลับ',
     years: '',
-    activityLogs: [] // 📅 โครงสร้างใหม่: เก็บประวัติกิจกรรม [{ year: '2026', date: '7-8/6' }]
+    households: '', // 🏠 เพิ่มช่องเก็บจำนวนหลังคาเรือน
+    activityLogs: [] 
   });
 
   // สำหรับฟิลด์ย่อยตอนกรอกประวัติกิจกรรมในฟอร์ม
@@ -42,7 +43,7 @@ export default function App() {
 
   // ระบบ auto-save
   useEffect(() => {
-    localStorage.setItem('v_permission_villages_secure_v2', JSON.stringify(villages));
+    localStorage.setItem('v_permission_villages_secure_v3', JSON.stringify(villages));
   }, [villages]);
 
   // ระบบสำรองข้อมูลถาวร
@@ -87,21 +88,29 @@ export default function App() {
     (village?.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ระบบคำนวณสถิติ
+  // 📊 ระบบคำนวณสถิติประเมินผลลัพธ์เชิงยุทธศาสตร์แบบใหม่ (คำนวณร่วมกับหลังคาเรือน)
   const total = filteredVillages.length;
-  const approved = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
+  const approvedVillages = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม');
+  const approvedCount = approvedVillages.length;
   const pending = filteredVillages.filter(v => v.status === 'รอการตอบกลับ').length;
 
-  const reachRate = total > 0 ? ((approved / total) * 100).toFixed(1) : '0.0';
-  const reachChange = total > 0 ? `คำนวณจากตัวกรอง ${total} พื้นที่` : 'ไม่มีข้อมูลการค้นหา';
-  const costValue = total > 0 ? (1 + (approved * 1.25)).toFixed(1) : '0.0';
-  const costStatus = approved >= 2 ? 'เกณฑ์ประสิทธิภาพสูง' : 'เกณฑ์กำลังพัฒนา';
+  // คำนวณหลังคาเรือนรวมทั้งหมด และหลังคาเรือนในพื้นที่ที่ได้รับอนุญาตแล้ว
+  const totalHouseholds = filteredVillages.reduce((sum, v) => sum + (parseInt(v.households) || 0), 0);
+  const approvedHouseholds = approvedVillages.reduce((sum, v) => sum + (parseInt(v.households) || 0), 0);
+
+  const reachRate = total > 0 ? ((approvedCount / total) * 100).toFixed(1) : '0.0';
+  const reachChange = total > 0 ? `อนุมัติแล้ว ${approvedCount} จาก ${total} พื้นที่` : 'ไม่มีข้อมูลการค้นหา';
+  
+  // ปรับสูตรความคุ้มค่า: อิงตามสัดส่วนจำนวนหลังคาเรือนที่เข้าถึงได้จริง
+  const costValue = approvedHouseholds > 0 ? (approvedHouseholds * 1.1).toFixed(0) : '0';
+  const costStatus = approvedHouseholds > 0 ? `เข้าถึงได้ ${approvedHouseholds.toLocaleString()} หลังคาเรือน` : 'ยังไม่มีเป้าหมายที่อนุมัติ';
+  
   const riskSuccess = total > 0 ? (((total - pending) / total) * 100).toFixed(1) : '0.0';
   const riskStatus = parseFloat(riskSuccess) >= 75 ? 'อยู่ในเกณฑ์ดีเยี่ยม' : 'ควรเร่งสื่อสารเพิ่มเติม';
 
   const stats = [
     { label: 'อัตราการเข้าถึงเป้าหมาย (Reach)', value: `${reachRate}%`, change: reachChange, icon: '📈' },
-    { label: 'อัตราความคุ้มค่าต่อส่วนรวม', value: `1:${costValue}`, change: costStatus, icon: '💎' },
+    { label: 'ประมาณการผู้รับประโยชน์รวม', value: `${Number(costValue).toLocaleString()} ราย`, change: costStatus, icon: '💎' },
     { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskSuccess}%`, change: riskStatus, icon: '🛡️' },
   ];
 
@@ -115,7 +124,6 @@ export default function App() {
         if (!groups[dateKey]) {
           groups[dateKey] = [];
         }
-        // แนบชื่อหมู่บ้านเข้าไปแสดงผล
         if (!groups[dateKey].some(v => v.id === village.id)) {
           groups[dateKey].push(village);
         }
@@ -127,7 +135,7 @@ export default function App() {
   // ฟังก์ชันควบคุมฟอร์ม
   const handleOpenAdd = () => {
     setIsEditing(false);
-    setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '', activityLogs: [] });
+    setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '', households: '', activityLogs: [] });
     setLogInput({ year: String(new Date().getFullYear()), date: '' });
     setIsModalOpen(true);
   };
@@ -136,7 +144,6 @@ export default function App() {
     setIsEditing(true);
     setCurrentId(village.id);
     
-    // โค้ดรองรับ Data Migration: ถ้าของเดิมเป็นข้อความธรรมดา ให้แปลงเป็น Array อัตโนมัติ
     let initialLogs = [];
     if (Array.isArray(village.activityLogs)) {
       initialLogs = village.activityLogs;
@@ -151,6 +158,7 @@ export default function App() {
       phone: village.phone || '',
       status: village.status || 'รอการตอบกลับ',
       years: village.years || '',
+      households: village.households || '', // ดึงค่าหลังคาเรือนเดิมมาแสดงผลในฟอร์มแก้ไข
       activityLogs: initialLogs
     });
     setLogInput({ year: String(new Date().getFullYear()), date: '' });
@@ -167,7 +175,7 @@ export default function App() {
       ...formData,
       activityLogs: [...formData.activityLogs, { year: logInput.year, date: logInput.date.trim() }]
     });
-    setLogInput({ ...logInput, date: '' }); // ล้างช่องกรอกวันที่หลังกดเพิ่ม
+    setLogInput({ ...logInput, date: '' }); 
   };
 
   // ฟังก์ชันย่อยสำหรับลบประวัติกิจกรรมที่ไม่เอาออก
@@ -244,7 +252,7 @@ export default function App() {
           </div>
           <div className="flex gap-2">
             <span className="text-xs bg-[#fffbeb] text-[#b45309] px-3 py-1.5 rounded-lg border border-[#fde68a] font-medium">
-              เน้นย้ำ: การสื่อสารความเสี่ยง (Risk Communication)
+              🏠 รวมทั้งสิ้น: {totalHouseholds.toLocaleString()} หลังคาเรือนเป้าหมาย
             </span>
           </div>
         </div>
@@ -291,7 +299,7 @@ export default function App() {
                       <ol className="space-y-1 text-xs text-[#475569] list-decimal pl-4 font-medium">
                         {upcomingGrouped[date].map((village, vIdx) => (
                           <li key={vIdx} className="hover:text-[#f59e0b] transition-colors">
-                            {village.name}
+                            {village.name} <span className="text-[10px] text-slate-400 font-mono">({village.households || 0} ครัวเรือน)</span>
                           </li>
                         ))}
                       </ol>
@@ -311,7 +319,7 @@ export default function App() {
                   <h3 className="font-bold text-[#1e293b] text-sm tracking-wide flex items-center gap-2">
                     📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
                   </h3>
-                  <p className="text-xs text-[#64748b] mt-0.5">ระบบประวัติกิจกรรมแยกรายปีสมบูรณ์แบบ</p>
+                  <p className="text-xs text-[#64748b] mt-0.5">ระบบประวัติกิจกรรมแยกรายปีพร้อมบันทึกจำนวนหลังคาเรือน</p>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -339,6 +347,7 @@ export default function App() {
                   <thead>
                     <tr className="border-b border-[#e2e8f0] text-[#64748b] bg-[#f1f5f9] text-xs uppercase tracking-wider font-bold">
                       <th className="py-4 px-6">ชื่อหมู่บ้านจัดสรร</th>
+                      <th className="py-4 px-4 text-center">หลังคาเรือน</th>
                       <th className="py-4 px-6">โซน / อำเภอ</th>
                       <th className="py-4 px-6">ผู้แทนนิติบุคคล</th>
                       <th className="py-4 px-6">เบอร์โทรศัพท์</th>
@@ -351,6 +360,10 @@ export default function App() {
                     {filteredVillages.map((v) => (
                       <tr key={v.id} className="hover:bg-[#f8fafc] transition-colors duration-150">
                         <td className="py-4 px-6 font-bold text-[#1e293b] text-base">{v.name}</td>
+                        {/* 🏠 แสดงผลคอลัมน์หลังคาเรือนแบบเด่นชัด */}
+                        <td className="py-4 px-4 text-center font-bold text-slate-700 font-mono bg-slate-50/50">
+                          {v.households ? Number(v.households).toLocaleString() : '-'}
+                        </td>
                         <td className="py-4 px-6 text-[#475569] font-medium">{v.zone}</td>
                         <td className="py-4 px-6 text-[#475569]">{v.contact}</td>
                         <td className="py-4 px-6 text-[#64748b] font-mono tracking-wide">{v.phone || '-'}</td>
@@ -368,7 +381,6 @@ export default function App() {
                           </span>
                         </td>
                         <td className="py-4 px-6">
-                          {/* ส่วนแสดงประวัติกิจกรรมเรียงแบบรายปีชิค ๆ */}
                           <div className="flex flex-wrap gap-1.5 max-w-xs">
                             {Array.isArray(v.activityLogs) && v.activityLogs.length > 0 ? (
                               v.activityLogs.map((log, lIdx) => (
@@ -392,7 +404,7 @@ export default function App() {
                     ))}
                     {filteredVillages.length === 0 && (
                       <tr>
-                        <td colSpan="7" className="py-8 px-6 text-center text-[#94a3b8] italic bg-[#fafafa]">
+                        <td colSpan="8" className="py-8 px-6 text-center text-[#94a3b8] italic bg-[#fafafa]">
                           ไม่พบข้อมูลหมู่บ้านในตารางนี้ค่ะ 🔍
                         </td>
                       </tr>
@@ -407,7 +419,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* 📋 MODAL FORM: จัดสัดส่วนระบบป้อนข้อมูลรายปีใหม่ */}
+      {/* 📋 MODAL FORM: ปรับเพิ่มฟิลด์ป้อนข้อมูลจำนวนหลังคาเรือน */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-lg overflow-hidden shadow-xl max-h-[90vh] flex flex-col">
@@ -417,9 +429,16 @@ export default function App() {
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-              <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">ชื่อหมู่บ้านจัดสรร <span className="text-rose-500">*</span></label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="เช่น หมู่บ้านลัดดารมย์" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors" />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">ชื่อหมู่บ้านจัดสรร <span className="text-rose-500">*</span></label>
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="เช่น หมู่บ้านลัดดารมย์" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors" />
+                </div>
+                {/* ช่องกรอกจำนวนหลังคาเรือน */}
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">หลังคาเรือน</label>
+                  <input type="number" min="0" value={formData.households} onChange={(e) => setFormData({...formData, households: e.target.value})} placeholder="เช่น 350" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors font-mono font-bold" />
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -482,7 +501,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* แสดงผลรายการที่แอดลงบันทึกในฟอร์มปัจจุบัน */}
+                {/* รายการประวัติที่ถูกแอดไว้ */}
                 <div className="pt-2">
                   <p className="text-[10px] text-slate-400 font-bold mb-1.5 uppercase tracking-wide">รายการประวัติบันทึกในสารบบขณะนี้:</p>
                   {formData.activityLogs.length === 0 ? (
