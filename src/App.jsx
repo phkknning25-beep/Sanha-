@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (ป้องกันข้อมูลสูญหาย 100%)
+  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย
   const [villages, setVillages] = useState(() => {
     try {
-      // 1.1 ลองดึงข้อมูลจาก Key เวอร์ชันใหม่ดูก่อน
       const savedVillagesV2 = localStorage.getItem('v_permission_villages_secure_v2');
       if (savedVillagesV2) {
         const parsed = JSON.parse(savedVillagesV2);
         if (Array.isArray(parsed)) return parsed;
       }
 
-      // 1.2 ถ้าไม่มี Key ใหม่ ให้ไปดึงจาก Key เก่ามา
       const oldSavedVillages = localStorage.getItem('v_permission_villages_secure');
       if (oldSavedVillages) {
         const parsedOld = JSON.parse(oldSavedVillages);
@@ -20,19 +18,15 @@ export default function App() {
     } catch (error) {
       console.error("เกิดข้อผิดพลาดในการอ่าน LocalStorage:", error);
     }
-
-    // 1.3 ถ้าไม่มีข้อมูลเลย หรือข้อมูลเสียหาย ให้คืนค่าเป็นอาเรย์ว่างเปล่า []
     return []; 
   });
 
-  // สเตตสำหรับควบคุมการพิมพ์ค้นหา (Search)
   const [searchTerm, setSearchTerm] = useState('');
-
-  // สเตตสำหรับควบคุมการเปิด/ปิดฟอร์ม และการจัดเก็บข้อมูลขณะคีย์
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
 
+  // สเตตสำหรับฟอร์มกรอกข้อมูล
   const [formData, setFormData] = useState({
     name: '',
     zone: '',
@@ -40,15 +34,18 @@ export default function App() {
     phone: '',
     status: 'รอการตอบกลับ',
     years: '',
-    eventDate: '' // 📅 เก็บข้อมูลวันที่คีย์เข้าทำกิจกรรมล่าสุด
+    activityLogs: [] // 📅 โครงสร้างใหม่: เก็บประวัติกิจกรรม [{ year: '2026', date: '7-8/6' }]
   });
 
-  // ระบบ auto-save (เซฟลงเครื่องอัตโนมัติเมื่อมีการเปลี่ยนแปลง)
+  // สำหรับฟิลด์ย่อยตอนกรอกประวัติกิจกรรมในฟอร์ม
+  const [logInput, setLogInput] = useState({ year: String(new Date().getFullYear()), date: '' });
+
+  // ระบบ auto-save
   useEffect(() => {
     localStorage.setItem('v_permission_villages_secure_v2', JSON.stringify(villages));
   }, [villages]);
 
-  // ระบบสำรองข้อมูลถาวรข้ามปี (Backup & Import System)
+  // ระบบสำรองข้อมูลถาวร
   const handleExportData = () => {
     if (villages.length === 0) {
       alert('ยังไม่มีข้อมูลในสารบบให้ส่งออกค่ะคุณหนิง');
@@ -83,24 +80,22 @@ export default function App() {
     };
   };
 
-  // ระบบตัวกรองคำค้นหาแบบปลอดภัยสูง (ใช้ Optional Chaining ป้องกันแอปพัง)
+  // ระบบตัวกรองคำค้นหา
   const filteredVillages = villages.filter(village => 
     (village?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (village?.zone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (village?.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 📊 ระบบคำนวณสถิติเชิงยุทธศาสตร์แบบ Real-time
+  // ระบบคำนวณสถิติ
   const total = filteredVillages.length;
   const approved = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
   const pending = filteredVillages.filter(v => v.status === 'รอการตอบกลับ').length;
 
   const reachRate = total > 0 ? ((approved / total) * 100).toFixed(1) : '0.0';
   const reachChange = total > 0 ? `คำนวณจากตัวกรอง ${total} พื้นที่` : 'ไม่มีข้อมูลการค้นหา';
-
   const costValue = total > 0 ? (1 + (approved * 1.25)).toFixed(1) : '0.0';
   const costStatus = approved >= 2 ? 'เกณฑ์ประสิทธิภาพสูง' : 'เกณฑ์กำลังพัฒนา';
-
   const riskSuccess = total > 0 ? (((total - pending) / total) * 100).toFixed(1) : '0.0';
   const riskStatus = parseFloat(riskSuccess) >= 75 ? 'อยู่ในเกณฑ์ดีเยี่ยม' : 'ควรเร่งสื่อสารเพิ่มเติม';
 
@@ -110,28 +105,45 @@ export default function App() {
     { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskSuccess}%`, change: riskStatus, icon: '🛡️' },
   ];
 
-  // 📅 จัดกรุ๊ปข้อมูลกำหนดการ (เพิ่มระบบเช็คค่าว่างเพื่อป้องกัน Error)
-  const upcomingGrouped = villages
-    .filter(v => v?.eventDate && String(v.eventDate).trim() !== '')
-    .reduce((groups, village) => {
-      const date = String(village.eventDate).trim();
-      if (!groups[date]) {
-        groups[date] = [];
+  // 📅 จัดกรุ๊ปข้อมูลกำหนดการด้านซ้าย (กรองเอาเฉพาะกิจกรรมที่เกิดขึ้นใน "ปีปัจจุบัน")
+  const currentYearStr = String(new Date().getFullYear());
+  const upcomingGrouped = villages.reduce((groups, village) => {
+    const logs = village?.activityLogs || [];
+    logs.forEach(log => {
+      if (log.year === currentYearStr && log.date && log.date.trim() !== '') {
+        const dateKey = log.date.trim();
+        if (!groups[dateKey]) {
+          groups[dateKey] = [];
+        }
+        // แนบชื่อหมู่บ้านเข้าไปแสดงผล
+        if (!groups[dateKey].some(v => v.id === village.id)) {
+          groups[dateKey].push(village);
+        }
       }
-      groups[date].push(village);
-      return groups;
-    }, {});
+    });
+    return groups;
+  }, {});
 
   // ฟังก์ชันควบคุมฟอร์ม
   const handleOpenAdd = () => {
     setIsEditing(false);
-    setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '', eventDate: '' });
+    setFormData({ name: '', zone: '', contact: '', phone: '', status: 'รอการตอบกลับ', years: '', activityLogs: [] });
+    setLogInput({ year: String(new Date().getFullYear()), date: '' });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (village) => {
     setIsEditing(true);
     setCurrentId(village.id);
+    
+    // โค้ดรองรับ Data Migration: ถ้าของเดิมเป็นข้อความธรรมดา ให้แปลงเป็น Array อัตโนมัติ
+    let initialLogs = [];
+    if (Array.isArray(village.activityLogs)) {
+      initialLogs = village.activityLogs;
+    } else if (village.eventDate) {
+      initialLogs = [{ year: String(new Date().getFullYear()), date: village.eventDate }];
+    }
+
     setFormData({
       name: village.name || '',
       zone: village.zone || '',
@@ -139,9 +151,31 @@ export default function App() {
       phone: village.phone || '',
       status: village.status || 'รอการตอบกลับ',
       years: village.years || '',
-      eventDate: village.eventDate || '' 
+      activityLogs: initialLogs
     });
+    setLogInput({ year: String(new Date().getFullYear()), date: '' });
     setIsModalOpen(true);
+  };
+
+  // ฟังก์ชันย่อยสำหรับกดเพิ่มคู่ข้อมูลกิจกรรมลงในตารางของฟอร์ม
+  const handleAddLog = () => {
+    if (!logInput.date.trim()) {
+      alert('กรุณากรอกวันที่จัดกิจกรรมด้วยค่ะ');
+      return;
+    }
+    setFormData({
+      ...formData,
+      activityLogs: [...formData.activityLogs, { year: logInput.year, date: logInput.date.trim() }]
+    });
+    setLogInput({ ...logInput, date: '' }); // ล้างช่องกรอกวันที่หลังกดเพิ่ม
+  };
+
+  // ฟังก์ชันย่อยสำหรับลบประวัติกิจกรรมที่ไม่เอาออก
+  const handleRemoveLog = (indexToRemove) => {
+    setFormData({
+      ...formData,
+      activityLogs: formData.activityLogs.filter((_, idx) => idx !== indexToRemove)
+    });
   };
 
   const handleDelete = (id) => {
@@ -236,16 +270,16 @@ export default function App() {
         {/* 🏢 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
-          {/* 📅 COLUMN ด้านซ้าย: กำหนดการ */}
+          {/* 📅 COLUMN ด้านซ้าย: กำหนดการแอปพลิเคชันประจำปีนี้ */}
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-sm">
               <h3 className="text-xs font-bold text-[#b45309] tracking-wider uppercase flex items-center gap-1.5 mb-3 bg-[#fffbeb] p-2 rounded-lg border border-[#fde68a]">
-                🗓️ แผนงานในอาทิตย์นี้
+                🗓️ กำหนดการประจำปี {currentYearStr}
               </h3>
               
               {Object.keys(upcomingGrouped).length === 0 ? (
                 <div className="text-center py-6 text-[#94a3b8] text-xs italic">
-                  ไม่มีกำหนดการเข้าทำกิจกรรมในอาทิตย์นี้ค่ะคุณหนิง
+                  ไม่มีกำหนดการเข้าทำกิจกรรมในปีนี้ค่ะคุณหนิง
                 </div>
               ) : (
                 <div className="space-y-4 overflow-y-auto max-h-[450px] pr-1">
@@ -268,7 +302,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 🗃️ COLUMN ด้านขวา: ตารางหลัก */}
+          {/* 🗃️ COLUMN ด้านขวา: ตารางหลักแสดงทำเนียบข้อมูล */}
           <div className="lg:col-span-3">
             <div className="bg-white border border-[#e2e8f0] rounded-xl overflow-hidden shadow-sm">
               
@@ -277,7 +311,7 @@ export default function App() {
                   <h3 className="font-bold text-[#1e293b] text-sm tracking-wide flex items-center gap-2">
                     📊 สารบบข้อมูลยุทธศาสตร์การจัดหาเชิงรุก ({villages.length} รายการ)
                   </h3>
-                  <p className="text-xs text-[#64748b] mt-0.5">สถิติและทำเนียบข้อมูลถาวร ไร้ความเสี่ยงข้อมูลสูญหาย</p>
+                  <p className="text-xs text-[#64748b] mt-0.5">ระบบประวัติกิจกรรมแยกรายปีสมบูรณ์แบบ</p>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -309,7 +343,7 @@ export default function App() {
                       <th className="py-4 px-6">ผู้แทนนิติบุคคล</th>
                       <th className="py-4 px-6">เบอร์โทรศัพท์</th>
                       <th className="py-4 px-6">สถานะล่าสุด</th>
-                      <th className="py-4 px-6 text-center">วันที่เข้าทำกิจกรรม</th>
+                      <th className="py-4 px-6">ประวัติและกำหนดการทำงานรายปี</th>
                       <th className="py-4 px-6 text-center">การจัดการ</th>
                     </tr>
                   </thead>
@@ -333,14 +367,20 @@ export default function App() {
                             {v.status}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-center">
-                          {v.eventDate ? (
-                            <span className="bg-[#fffbeb] text-[#b45309] border border-[#fde68a] text-xs px-2.5 py-1 rounded-lg font-mono font-bold">
-                              {v.eventDate}
-                            </span>
-                          ) : (
-                            <span className="text-[#94a3b8] text-xs italic">ไม่ได้ระบุ</span>
-                          )}
+                        <td className="py-4 px-6">
+                          {/* ส่วนแสดงประวัติกิจกรรมเรียงแบบรายปีชิค ๆ */}
+                          <div className="flex flex-wrap gap-1.5 max-w-xs">
+                            {Array.isArray(v.activityLogs) && v.activityLogs.length > 0 ? (
+                              v.activityLogs.map((log, lIdx) => (
+                                <span key={lIdx} className="inline-block bg-[#fffbeb] text-[#b45309] border border-[#fde68a] text-[11px] px-2 py-0.5 rounded font-medium shadow-sm">
+                                  <span className="opacity-60 font-bold font-mono mr-1">{log.year}:</span>
+                                  {log.date}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[#94a3b8] text-xs italic">ไม่มีบันทึกข้อมูล</span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-6 text-center">
                           <div className="flex justify-center gap-2">
@@ -367,16 +407,16 @@ export default function App() {
         </div>
       </main>
 
-      {/* 📋 MODAL FORM */}
+      {/* 📋 MODAL FORM: จัดสัดส่วนระบบป้อนข้อมูลรายปีใหม่ */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
-            <div className="px-6 py-4 bg-[#f8fafc] border-b border-[#e2e8f0] flex justify-between items-center">
+          <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-lg overflow-hidden shadow-xl max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 bg-[#f8fafc] border-b border-[#e2e8f0] flex justify-between items-center shrink-0">
               <h3 className="text-sm font-bold text-[#1e293b] tracking-wide">{isEditing ? '📝 แก้ไขข้อมูลยุทธศาสตร์หมู่บ้าน' : '➕ ลงทะเบียนหมู่บ้านจัดสรรเป้าหมาย'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#94a3b8] hover:text-[#1e293b] cursor-pointer text-lg">✕</button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">ชื่อหมู่บ้านจัดสรร <span className="text-rose-500">*</span></label>
                 <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="เช่น หมู่บ้านลัดดารมย์" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors" />
@@ -399,21 +439,73 @@ export default function App() {
                   <input type="text" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} placeholder="เช่น 081-234-5678" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors font-mono" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">ประวัติปีทำกิจกรรม</label>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">ประวัติปีทำกิจกรรมเดิม (พิมพ์แยก)</label>
                   <input type="text" value={formData.years} onChange={(e) => setFormData({...formData, years: e.target.value})} placeholder="เช่น 2024, 2025" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors font-mono" />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">วันที่เข้าทำกิจกรรมอาทิตย์นี้</label>
-                <input 
-                  type="text" 
-                  value={formData.eventDate} 
-                  onChange={(e) => setFormData({...formData, eventDate: e.target.value})} 
-                  placeholder="เช่น 7-8/6/2569" 
-                  className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-lg px-3 py-2 text-sm text-[#334155] focus:outline-none focus:border-[#f59e0b] focus:bg-white transition-colors font-mono font-semibold text-[#b45309]" 
-                />
-                <p className="text-[10px] text-[#94a3b8] mt-1">คีย์ระบุวันนัดหมายลงตารางเพื่อให้ชื่อหมู่บ้านวิ่งไปขึ้นแจ้งเตือนที่ตารางกำหนดการฝั่งซ้ายมือค่ะ</p>
+              {/* 📅 ระบบป้อนข้อมูลประวัติกิจกรรมแบบระบุปีได้และสะสมลิสต์ได้ */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider">🗓️ ส่วนบันทึกแผนงานและประวัติกิจกรรมรายปี</label>
+                
+                <div className="flex gap-2 items-end">
+                  <div className="w-28 shrink-0">
+                    <label className="block text-[10px] text-slate-500 font-bold mb-1">เลือกปี</label>
+                    <select 
+                      value={logInput.year} 
+                      onChange={(e) => setLogInput({...logInput, year: e.target.value})}
+                      className="w-full bg-white border border-[#e2e8f0] rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-[#f59e0b] font-mono font-bold"
+                    >
+                      <option value="2027">2027</option>
+                      <option value="2026">2026</option>
+                      <option value="2025">2025</option>
+                      <option value="2024">2024</option>
+                      <option value="2023">2023</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[10px] text-slate-500 font-bold mb-1">วันที่เข้าจัดกิจกรรม</label>
+                    <input 
+                      type="text"
+                      value={logInput.date}
+                      onChange={(e) => setLogInput({...logInput, date: e.target.value})}
+                      placeholder="เช่น 7-8/6 หรือ 12 ธ.ค."
+                      className="w-full bg-white border border-[#e2e8f0] rounded-lg px-3 py-2 text-xs text-[#334155] focus:outline-none focus:border-[#f59e0b]"
+                    />
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleAddLog}
+                    className="bg-[#fffbeb] hover:bg-[#fef3c7] text-[#b45309] border border-[#fde68a] text-xs px-3 py-2 rounded-lg font-bold transition-all shrink-0 cursor-pointer h-[34px]"
+                  >
+                    ➕ เพิ่มลงประวัติ
+                  </button>
+                </div>
+
+                {/* แสดงผลรายการที่แอดลงบันทึกในฟอร์มปัจจุบัน */}
+                <div className="pt-2">
+                  <p className="text-[10px] text-slate-400 font-bold mb-1.5 uppercase tracking-wide">รายการประวัติบันทึกในสารบบขณะนี้:</p>
+                  {formData.activityLogs.length === 0 ? (
+                    <p className="text-xs italic text-slate-400 text-center py-2 bg-white rounded-lg border border-dashed border-slate-200">ยังไม่มีการเพิ่มรายการประวัติสำหรับพื้นที่นี้ค่ะ</p>
+                  ) : (
+                    <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto">
+                      {formData.activityLogs.map((log, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+                          <span className="text-xs font-medium text-slate-700">
+                            <strong className="font-mono text-[#b45309] mr-2">[{log.year}]</strong> {log.date}
+                          </span>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveLog(idx)}
+                            className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer px-1"
+                          >
+                            ✕ ลบรายการนี้
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -425,7 +517,7 @@ export default function App() {
                 </select>
               </div>
 
-              <div className="pt-2 flex justify-end gap-3 border-t border-slate-200">
+              <div className="pt-4 flex justify-end gap-3 border-t border-slate-200 shrink-0">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#475569] text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer">ยกเลิก</button>
                 <button type="submit" className="bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-md shadow-amber-500/10 cursor-pointer">💾 บันทึกข้อมูล</button>
               </div>
