@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 1. ฐานข้อมูลเริ่มต้นแบบขาวสะอาด 100% (ดึงจากเครื่องก่อน ถ้าไม่มีจะเป็นตารางว่าง)
+  // 🏛️ 1. ระบบดึงฐานข้อมูลเริ่มต้นแบบปลอดภัย (ป้องกันข้อมูลสูญหาย 100%)
   const [villages, setVillages] = useState(() => {
-    const savedVillages = localStorage.getItem('v_permission_villages_secure_v2');
-    if (savedVillages) {
-      return JSON.parse(savedVillages);
+    try {
+      // 1.1 ลองดึงข้อมูลจาก Key เวอร์ชันใหม่ดูก่อน
+      const savedVillagesV2 = localStorage.getItem('v_permission_villages_secure_v2');
+      if (savedVillagesV2) {
+        const parsed = JSON.parse(savedVillagesV2);
+        if (Array.isArray(parsed)) return parsed;
+      }
+
+      // 1.2 ถ้าไม่มี Key ใหม่ ให้ไปดึงจาก Key เก่ามา
+      const oldSavedVillages = localStorage.getItem('v_permission_villages_secure');
+      if (oldSavedVillages) {
+        const parsedOld = JSON.parse(oldSavedVillages);
+        if (Array.isArray(parsedOld)) return parsedOld;
+      }
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดในการอ่าน LocalStorage:", error);
     }
-    return [];
+
+    // 1.3 ถ้าไม่มีข้อมูลเลย หรือข้อมูลเสียหาย ให้คืนค่าเป็นอาเรย์ว่างเปล่า []
+    return []; 
   });
 
   // สเตตสำหรับควบคุมการพิมพ์ค้นหา (Search)
@@ -25,10 +40,10 @@ export default function App() {
     phone: '',
     status: 'รอการตอบกลับ',
     years: '',
-    eventDate: '' // 📅 ส่วนที่เพิ่ม: เก็บข้อมูลวันที่คีย์เข้าทำกิจกรรมล่าสุด
+    eventDate: '' // 📅 เก็บข้อมูลวันที่คีย์เข้าทำกิจกรรมล่าสุด
   });
 
-  // ระบบ auto-save ด่านแรก (เซฟลงเครื่องอัตโนมัติเมื่อมีการเปลี่ยนแปลง)
+  // ระบบ auto-save (เซฟลงเครื่องอัตโนมัติเมื่อมีการเปลี่ยนแปลง)
   useEffect(() => {
     localStorage.setItem('v_permission_villages_secure_v2', JSON.stringify(villages));
   }, [villages]);
@@ -68,14 +83,14 @@ export default function App() {
     };
   };
 
-  // ระบบตัวกรองคำค้นหา (Search Filtering Logic)
+  // ระบบตัวกรองคำค้นหาแบบปลอดภัยสูง (ใช้ Optional Chaining ป้องกันแอปพัง)
   const filteredVillages = villages.filter(village => 
-    (village.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (village.zone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (village.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (village?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (village?.zone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (village?.contact || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 📊 ระบบคำนวณสถิติเชิงยุทธศาสตร์แบบ Real-time (ปรับตามมือขยับ)
+  // 📊 ระบบคำนวณสถิติเชิงยุทธศาสตร์แบบ Real-time
   const total = filteredVillages.length;
   const approved = filteredVillages.filter(v => v.status === 'อนุญาตเข้าจัดกิจกรรม').length;
   const pending = filteredVillages.filter(v => v.status === 'รอการตอบกลับ').length;
@@ -95,11 +110,11 @@ export default function App() {
     { label: 'ความสำเร็จในการสื่อสารความเสี่ยง', value: `${riskSuccess}%`, change: riskStatus, icon: '🛡️' },
   ];
 
-  // 📅 จัดกรุ๊ปข้อมูลหมู่บ้านที่จะเข้าทำกิจกรรมในอนาคตอันใกล้เพื่อแสดงแถบด้านซ้าย
+  // 📅 จัดกรุ๊ปข้อมูลกำหนดการ (เพิ่มระบบเช็คค่าว่างเพื่อป้องกัน Error)
   const upcomingGrouped = villages
-    .filter(v => v.eventDate && v.eventDate.trim() !== '')
+    .filter(v => v?.eventDate && String(v.eventDate).trim() !== '')
     .reduce((groups, village) => {
-      const date = village.eventDate.trim();
+      const date = String(village.eventDate).trim();
       if (!groups[date]) {
         groups[date] = [];
       }
@@ -118,13 +133,13 @@ export default function App() {
     setIsEditing(true);
     setCurrentId(village.id);
     setFormData({
-      name: village.name,
-      zone: village.zone,
-      contact: village.contact,
-      phone: village.phone,
-      status: village.status,
-      years: village.years,
-      eventDate: village.eventDate || '' // ดึงค่าเก่าขึ้นมาแก้ไข
+      name: village.name || '',
+      zone: village.zone || '',
+      contact: village.contact || '',
+      phone: village.phone || '',
+      status: village.status || 'รอการตอบกลับ',
+      years: village.years || '',
+      eventDate: village.eventDate || '' 
     });
     setIsModalOpen(true);
   };
@@ -218,10 +233,10 @@ export default function App() {
           ))}
         </div>
 
-        {/* 🏢 2-COLUMN LAYOUT: เพิ่มฝั่งซ้ายแจ้งแผนงานอาทิตย์นี้ */}
+        {/* 🏢 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
-          {/* 📅 COLUMN ด้านซ้าย: แผนกำหนดการในอาทิตย์ที่กำลังจะถึง */}
+          {/* 📅 COLUMN ด้านซ้าย: กำหนดการ */}
           <div className="lg:col-span-1 space-y-4">
             <div className="bg-white border border-[#e2e8f0] rounded-xl p-4 shadow-sm">
               <h3 className="text-xs font-bold text-[#b45309] tracking-wider uppercase flex items-center gap-1.5 mb-3 bg-[#fffbeb] p-2 rounded-lg border border-[#fde68a]">
@@ -253,7 +268,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 🗃️ COLUMN ด้านขวา: ตารางสารบบยุทธศาสตร์หลัก */}
+          {/* 🗃️ COLUMN ด้านขวา: ตารางหลัก */}
           <div className="lg:col-span-3">
             <div className="bg-white border border-[#e2e8f0] rounded-xl overflow-hidden shadow-sm">
               
@@ -265,7 +280,6 @@ export default function App() {
                   <p className="text-xs text-[#64748b] mt-0.5">สถิติและทำเนียบข้อมูลถาวร ไร้ความเสี่ยงข้อมูลสูญหาย</p>
                 </div>
                 
-                {/* Search & Add Button */}
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                   <div className="relative w-full sm:w-64">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#94a3b8] text-xs">🔍</span>
@@ -308,13 +322,13 @@ export default function App() {
                         <td className="py-4 px-6 text-[#64748b] font-mono tracking-wide">{v.phone || '-'}</td>
                         <td className="py-4 px-6">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                            v.status.includes('อนุญาต') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            v.status.includes('รอ') ? 'bg-amber-50 text-[#b45309] border-amber-200' :
+                            v.status?.includes('อนุญาต') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            v.status?.includes('รอ') ? 'bg-amber-50 text-[#b45309] border-amber-200' :
                             'bg-rose-50 text-rose-700 border-rose-200'
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${
-                              v.status.includes('อนุญาต') ? 'bg-emerald-500' :
-                              v.status.includes('รอ') ? 'bg-[#f59e0b]' : 'bg-rose-500'
+                              v.status?.includes('อนุญาต') ? 'bg-emerald-500' :
+                              v.status?.includes('รอ') ? 'bg-[#f59e0b]' : 'bg-rose-500'
                             }`}></span>
                             {v.status}
                           </span>
@@ -353,10 +367,10 @@ export default function App() {
         </div>
       </main>
 
-      {/* 📋 MODAL FORM: อัปเดตเพิ่มช่องคีย์ข้อเข้าทำกิจกรรมด้านล่างฟอร์ม */}
+      {/* 📋 MODAL FORM */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-fade-in">
+          <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
             <div className="px-6 py-4 bg-[#f8fafc] border-b border-[#e2e8f0] flex justify-between items-center">
               <h3 className="text-sm font-bold text-[#1e293b] tracking-wide">{isEditing ? '📝 แก้ไขข้อมูลยุทธศาสตร์หมู่บ้าน' : '➕ ลงทะเบียนหมู่บ้านจัดสรรเป้าหมาย'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-[#94a3b8] hover:text-[#1e293b] cursor-pointer text-lg">✕</button>
@@ -390,7 +404,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 📅 แก้ไขเพิ่มเติม: เพิ่มกล่องคีย์วันที่สำหรับระบุเข้าทำกิจกรรม */}
               <div>
                 <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">วันที่เข้าทำกิจกรรมอาทิตย์นี้</label>
                 <input 
